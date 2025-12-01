@@ -1,18 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDevToolsStore } from '../../store';
 import { performanceToColor } from '../../utils/colors';
+import type { PerformanceMetrics } from '../../engine/PerformanceMonitor';
 
 interface TreeNodeProps {
     node: any;
     depth: number;
     onSelect: (componentId: string) => void;
     selectedId: string | null;
+    metricsMap: Map<string, PerformanceMetrics>;
+    slowThreshold: number;
 }
 
-const TreeNode: React.FC<TreeNodeProps> = ({ node, depth, onSelect, selectedId }) => {
+const TreeNode: React.FC<TreeNodeProps> = ({
+    node,
+    depth,
+    onSelect,
+    selectedId,
+    metricsMap,
+    slowThreshold
+}) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
     const isSelected = node.componentId === selectedId;
+
+    const metric = metricsMap.get(node.componentId);
+    const renderCount = metric?.renderCount ?? 0;
+    const lastRenderTime = metric?.lastRenderTime ?? 0;
+
+    const badgeColor = metric
+        ? performanceToColor(lastRenderTime, { good: slowThreshold / 2, warning: slowThreshold })
+        : undefined;
 
     return (
         <div className="select-none">
@@ -34,12 +52,20 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth, onSelect, selectedId }
                     {isExpanded ? '▼' : '▶'}
                 </button>
 
-                <span className="text-sm font-mono text-slate-300 truncate">
+                <span className="text-sm font-mono text-slate-300 truncate mr-2">
                     {node.componentName}
                 </span>
 
-                {/* Optional: Show render count badge if available in node data */}
-                {/* <span className="ml-auto text-xs text-slate-500">{node.renderCount}</span> */}
+                {/* Show render count badge if available */}
+                {renderCount > 0 && (
+                    <span
+                        className="ml-auto text-xs px-1.5 py-0.5 rounded-full text-slate-900 font-medium min-w-[20px] text-center"
+                        style={{ backgroundColor: badgeColor || '#94a3b8' }}
+                        title={`Last render: ${lastRenderTime.toFixed(2)}ms | Total renders: ${renderCount}`}
+                    >
+                        {renderCount}
+                    </span>
+                )}
             </div>
 
             {isExpanded && hasChildren && (
@@ -51,6 +77,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth, onSelect, selectedId }
                             depth={depth + 1}
                             onSelect={onSelect}
                             selectedId={selectedId}
+                            metricsMap={metricsMap}
+                            slowThreshold={slowThreshold}
                         />
                     ))}
                 </div>
@@ -60,7 +88,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, depth, onSelect, selectedId }
 };
 
 export const ComponentTree: React.FC = () => {
-    const { hierarchy, selectedComponentId, setSelectedComponentId } = useDevToolsStore();
+    const { hierarchy, selectedComponentId, setSelectedComponent, metrics, slowThreshold } = useDevToolsStore();
+
+    const metricsMap = useMemo(() => {
+        return new Map(metrics.map(m => [m.componentId, m]));
+    }, [metrics]);
 
     if (!hierarchy || hierarchy.length === 0) {
         return (
@@ -80,8 +112,10 @@ export const ComponentTree: React.FC = () => {
                         key={node.componentId}
                         node={node}
                         depth={0}
-                        onSelect={setSelectedComponentId}
+                        onSelect={setSelectedComponent}
                         selectedId={selectedComponentId}
+                        metricsMap={metricsMap}
+                        slowThreshold={slowThreshold}
                     />
                 ))}
             </div>

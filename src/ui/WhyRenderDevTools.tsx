@@ -165,7 +165,7 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
                     />
                 );
 
-            case 'flame':
+            case 'flamegraph':
                 return <FlameGraph />;
 
             case 'tree':
@@ -187,7 +187,7 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
         { id: 'timeline', label: 'Timeline', icon: '⏱️' },
         { id: 'stats', label: 'Stats', icon: '📊' },
         { id: 'diff', label: 'Diff', icon: '📝' },
-        { id: 'flame', label: 'Flame', icon: '🔥' },
+        { id: 'flamegraph', label: 'Flame', icon: '🔥' },
         { id: 'tree', label: 'Tree', icon: '🌳' },
     ];
 
