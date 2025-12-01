@@ -2,32 +2,42 @@ import { useRef, useEffect } from 'react';
 import { Options, Change } from '../types';
 import { getChanges } from '../utils/diff';
 import { shouldInstrument } from '../utils/env';
+import { globalRenderTracker } from '../engine/RenderTracker';
+import { globalPerformanceMonitor } from '../engine/PerformanceMonitor';
 
-// Global registry for tracking (WeakMap keyed by a unique symbol per component instance)
-const componentRegistry = new WeakMap<object, string>();
+// Generate stable component IDs
+let componentIdCounter = 0;
+const generateComponentId = (name: string): string => {
+    return `${name}-${++componentIdCounter}-${Date.now()}`;
+};
 
 export function useWhyRender<TProps = any>(
     props: TProps,
     componentName?: string,
     options?: Options
-): { lastProps: TProps | null; changes: Change[] } {
+): { lastProps: TProps | null; changes: Change[]; componentId: string } {
     if (!shouldInstrument()) {
-        return { lastProps: null, changes: [] };
+        return { lastProps: null, changes: [], componentId: '' };
     }
 
     // Stable ID for this component instance
-    // We use a ref to hold a symbol that represents this instance "identity"
-    const idRef = useRef<object>(null);
-    if (!idRef.current) {
-        idRef.current = {}; // Unique object as key
+    const componentIdRef = useRef<string>('');
+    if (!componentIdRef.current) {
+        const name = componentName || 'Component';
+        componentIdRef.current = generateComponentId(name);
+
+        // Register component in hierarchy
+        globalRenderTracker.registerComponent(name, componentIdRef.current);
     }
 
     const lastProps = useRef<TProps | null>(null);
     const changesRef = useRef<Change[]>([]);
     const renderCount = useRef(0);
-
     const name = componentName || 'Component';
     const strategy = options?.compareStrategy || 'shallow';
+
+    // Start performance tracking
+    globalPerformanceMonitor.markRenderStart(name, componentIdRef.current);
 
     // Calculate changes during render
     if (lastProps.current) {
@@ -37,6 +47,14 @@ export function useWhyRender<TProps = any>(
             strategy,
             options?.customCompare,
             options?.skipKeys
+        );
+
+        // Track render with changes
+        globalRenderTracker.trackRender(
+            name,
+            componentIdRef.current,
+            props,
+            changesRef.current
         );
 
         if (changesRef.current.length > 0) {
@@ -61,51 +79,47 @@ export function useWhyRender<TProps = any>(
                     });
 
                     if (change.reason === 'function') {
-                        console.log('Tip: Wrap with useCallback');
+                        console.log('💡 Tip: Wrap with useCallback');
                     } else if (change.reason === 'reference') {
-                        console.log('Tip: Memoize object/array or move outside component');
+                        console.log('💡 Tip: Memoize object/array or move outside component');
                     }
                 });
                 console.groupEnd();
             }
         }
+    } else {
+        // Initial render
+        globalRenderTracker.trackRender(
+            name,
+            componentIdRef.current,
+            props,
+            []
+        );
     }
 
     renderCount.current++;
 
-    // Commit phase: update lastProps
+    // Commit phase: update lastProps and end performance tracking
     useEffect(() => {
         lastProps.current = props;
+        globalRenderTracker.commitRender(name, componentIdRef.current);
     });
 
-    // Register for tracking if needed
+    // Cleanup on unmount
     useEffect(() => {
-        if (idRef.current) {
-            componentRegistry.set(idRef.current, name);
-        }
-    }, [name]);
+        return () => {
+            globalRenderTracker.unregisterComponent(componentIdRef.current);
+        };
+    }, []);
 
     return {
         lastProps: lastProps.current,
-        changes: changesRef.current
+        changes: changesRef.current,
+        componentId: componentIdRef.current,
     };
 }
 
-// Static-like method to get the token (not directly attached to function due to ESM, but exported separately if needed)
-// Or we can attach it if we change export style. 
-// Requirement: "Provide an opt-in useWhyRender.track()"
-// We can assign it to the function object.
+// Static track method for opt-in tracking
 (useWhyRender as any).track = () => {
-    // This is tricky because hooks rely on call context. 
-    // If the user calls `useWhyRender.track()` inside a component, it's just a function.
-    // It probably needs to be a separate hook `useWhyRenderTrack` or return a token from the main hook.
-    // Re-reading requirement: "Provide an opt-in useWhyRender.track() that returns a small token"
-    // Maybe they mean the return value of the hook has a track method? Or it's a separate function on the export?
-    // "useWhyRender.track()" looks like a static method.
-    // But to work it needs access to the instance. 
-    // I will implement a separate hook `useTrackWhyRender` or just return the token from `useWhyRender` if requested?
-    // Let's stick to the simplest interpretation: A static helper that generates a token?
-    // Actually, if I attach it to the function, I can't use hook state inside it unless it's also a hook.
-    // I'll implement it as a property on the function that returns a unique symbol/token.
     return Symbol('why-render-token');
 };

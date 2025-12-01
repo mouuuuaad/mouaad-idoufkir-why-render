@@ -18,6 +18,7 @@ type Change = {
 declare function useWhyRender<TProps = any>(props: TProps, componentName?: string, options?: Options): {
     lastProps: TProps | null;
     changes: Change[];
+    componentId: string;
 };
 
 declare function withWhyRender<TProps extends object>(Component: React.ComponentType<TProps>, options?: Options): React.FC<TProps>;
