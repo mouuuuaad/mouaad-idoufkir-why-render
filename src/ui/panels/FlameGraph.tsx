@@ -21,7 +21,7 @@ export const FlameGraph: React.FC<FlameGraphProps> = ({
     width = 800,
     height = 400
 }) => {
-    const { renderHistory, hierarchy } = useDevToolsStore();
+    const { renders, hierarchy } = useDevToolsStore();
     const [selectedNode, setSelectedNode] = useState<d3.HierarchyRectangularNode<FlameGraphNode> | null>(null);
 
     // Transform hierarchy data into d3 compatible format
@@ -32,8 +32,8 @@ export const FlameGraph: React.FC<FlameGraphProps> = ({
         const buildTree = (nodes: any[]): FlameGraphNode[] => {
             return nodes.map(node => {
                 // Find latest render for this component
-                const renders = renderHistory.filter(r => r.componentId === node.componentId);
-                const lastRender = renders[renders.length - 1];
+                const componentRenders = renders.filter(r => r.componentId === node.componentId);
+                const lastRender = componentRenders[componentRenders.length - 1];
                 const duration = lastRender?.duration || 0.1; // Fallback for visibility
 
                 return {
@@ -55,7 +55,7 @@ export const FlameGraph: React.FC<FlameGraphProps> = ({
             actualDuration: 0,
             children
         };
-    }, [hierarchy, renderHistory]);
+    }, [hierarchy, renders]);
 
     const root = useMemo(() => {
         if (!rootData) return null;
