@@ -1,0 +1,39 @@
+import React, { useState, useCallback } from 'react';
+import ReactDOM from 'react-dom/client';
+import { useWhyRender, withWhyRender } from '../src';
+
+const Child = ({ count, onClick }: { count: number; onClick: () => void }) => {
+    useWhyRender({ count, onClick }, 'Child');
+    return <button onClick={onClick}>Child Count: {count}</button>;
+};
+
+const MemoizedChild = React.memo(Child);
+
+const App = () => {
+    const [count, setCount] = useState(0);
+    const [dummy, setDummy] = useState(0);
+
+    // This function is recreated on every render
+    const handleClick = () => setCount(c => c + 1);
+
+    // This function is stable
+    const stableClick = useCallback(() => setCount(c => c + 1), []);
+
+    return (
+        <div style={{ padding: 20 }}>
+            <h1>why-render Demo</h1>
+            <button onClick={() => setDummy(d => d + 1)}>Force Re-render Parent (Dummy: {dummy})</button>
+            <hr />
+            <h3>Case 1: Function Recreation</h3>
+            <p>Clicking "Force Re-render Parent" will cause Child to re-render because `handleClick` is new.</p>
+            <Child count={count} onClick={handleClick} />
+
+            <hr />
+            <h3>Case 2: Stable Props</h3>
+            <p>Clicking "Force Re-render Parent" should NOT re-render MemoizedChild if props are stable (but here `handleClick` is not stable, so it will still re-render unless we use stableClick).</p>
+            <MemoizedChild count={count} onClick={stableClick} />
+        </div>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')!).render(<App />);

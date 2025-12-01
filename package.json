@@ -1,0 +1,57 @@
+{
+  "name": "@mouaad-idoufkir/why-render",
+  "version": "0.0.1",
+  "description": "A minimal-bundle library for React 19 that detects and explains unnecessary re-renders.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react",
+    "react-19",
+    "performance",
+    "re-render",
+    "why-render",
+    "optimization"
+  ],
+  "author": "Mouaad Idoufkir",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^24.0.0",
+    "react": "^19.0.0-rc",
+    "react-dom": "^19.0.0-rc",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^7.2.6",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
