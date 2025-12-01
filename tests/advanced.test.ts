@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { getChanges } from '../src/utils/diff';
 import { renderHook } from '@testing-library/react';
 import { useWhyRender } from '../src/hooks/useWhyRender';
-import React from 'react';
 
 describe('getChanges advanced strategies', () => {
     it('fast-deep: detects differences at depth', () => {
