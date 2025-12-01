@@ -31,7 +31,7 @@ __export(ui_exports, {
 module.exports = __toCommonJS(ui_exports);
 
 // src/ui/WhyRenderDevTools.tsx
-var import_react4 = require("react");
+var import_react6 = require("react");
 
 // src/store/index.ts
 var import_zustand = require("zustand");
@@ -60,11 +60,11 @@ var useDevToolsStore = (0, import_zustand.create)((set) => ({
   toggleFlash: () => set((state) => ({ showFlash: !state.showFlash })),
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
   updateRenders: (renders) => set({ renders }),
-  updateHierarchy: (hierarchy) => set({ hierarchy }),
+  updateHierarchy: (hierarchy2) => set({ hierarchy: hierarchy2 }),
   updateMetrics: (metrics) => set({ metrics }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setMinDuration: (ms) => set({ minDuration: ms }),
-  setMaxRenders: (count) => set({ maxRenders: count }),
+  setMaxRenders: (count2) => set({ maxRenders: count2 }),
   setSlowThreshold: (ms) => set({ slowThreshold: ms }),
   clearData: () => set({
     renders: [],
@@ -712,7 +712,7 @@ const value = useMemo(() => ({ data }), [data]);`
       );
     });
   });
-  const frequentChanges = Array.from(propChangeFrequency.entries()).filter(([_, count]) => count > history.length * 0.8).map(([key]) => key);
+  const frequentChanges = Array.from(propChangeFrequency.entries()).filter(([_, count2]) => count2 > history.length * 0.8).map(([key]) => key);
   if (frequentChanges.length > 0) {
     suggestions.push({
       type: "general",
@@ -1030,8 +1030,481 @@ var DiffViewer = ({
   ] });
 };
 
-// src/ui/WhyRenderDevTools.tsx
+// src/ui/panels/FlameGraph.tsx
+var import_react4 = require("react");
+
+// node_modules/d3-hierarchy/src/hierarchy/count.js
+function count(node) {
+  var sum = 0, children = node.children, i = children && children.length;
+  if (!i) sum = 1;
+  else while (--i >= 0) sum += children[i].value;
+  node.value = sum;
+}
+function count_default() {
+  return this.eachAfter(count);
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/each.js
+function each_default(callback, that) {
+  let index = -1;
+  for (const node of this) {
+    callback.call(that, node, ++index, this);
+  }
+  return this;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/eachBefore.js
+function eachBefore_default(callback, that) {
+  var node = this, nodes = [node], children, i, index = -1;
+  while (node = nodes.pop()) {
+    callback.call(that, node, ++index, this);
+    if (children = node.children) {
+      for (i = children.length - 1; i >= 0; --i) {
+        nodes.push(children[i]);
+      }
+    }
+  }
+  return this;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/eachAfter.js
+function eachAfter_default(callback, that) {
+  var node = this, nodes = [node], next = [], children, i, n, index = -1;
+  while (node = nodes.pop()) {
+    next.push(node);
+    if (children = node.children) {
+      for (i = 0, n = children.length; i < n; ++i) {
+        nodes.push(children[i]);
+      }
+    }
+  }
+  while (node = next.pop()) {
+    callback.call(that, node, ++index, this);
+  }
+  return this;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/find.js
+function find_default(callback, that) {
+  let index = -1;
+  for (const node of this) {
+    if (callback.call(that, node, ++index, this)) {
+      return node;
+    }
+  }
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/sum.js
+function sum_default(value) {
+  return this.eachAfter(function(node) {
+    var sum = +value(node.data) || 0, children = node.children, i = children && children.length;
+    while (--i >= 0) sum += children[i].value;
+    node.value = sum;
+  });
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/sort.js
+function sort_default(compare) {
+  return this.eachBefore(function(node) {
+    if (node.children) {
+      node.children.sort(compare);
+    }
+  });
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/path.js
+function path_default(end) {
+  var start = this, ancestor = leastCommonAncestor(start, end), nodes = [start];
+  while (start !== ancestor) {
+    start = start.parent;
+    nodes.push(start);
+  }
+  var k = nodes.length;
+  while (end !== ancestor) {
+    nodes.splice(k, 0, end);
+    end = end.parent;
+  }
+  return nodes;
+}
+function leastCommonAncestor(a, b) {
+  if (a === b) return a;
+  var aNodes = a.ancestors(), bNodes = b.ancestors(), c = null;
+  a = aNodes.pop();
+  b = bNodes.pop();
+  while (a === b) {
+    c = a;
+    a = aNodes.pop();
+    b = bNodes.pop();
+  }
+  return c;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/ancestors.js
+function ancestors_default() {
+  var node = this, nodes = [node];
+  while (node = node.parent) {
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/descendants.js
+function descendants_default() {
+  return Array.from(this);
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/leaves.js
+function leaves_default() {
+  var leaves = [];
+  this.eachBefore(function(node) {
+    if (!node.children) {
+      leaves.push(node);
+    }
+  });
+  return leaves;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/links.js
+function links_default() {
+  var root = this, links = [];
+  root.each(function(node) {
+    if (node !== root) {
+      links.push({ source: node.parent, target: node });
+    }
+  });
+  return links;
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/iterator.js
+function* iterator_default() {
+  var node = this, current, next = [node], children, i, n;
+  do {
+    current = next.reverse(), next = [];
+    while (node = current.pop()) {
+      yield node;
+      if (children = node.children) {
+        for (i = 0, n = children.length; i < n; ++i) {
+          next.push(children[i]);
+        }
+      }
+    }
+  } while (next.length);
+}
+
+// node_modules/d3-hierarchy/src/hierarchy/index.js
+function hierarchy(data, children) {
+  if (data instanceof Map) {
+    data = [void 0, data];
+    if (children === void 0) children = mapChildren;
+  } else if (children === void 0) {
+    children = objectChildren;
+  }
+  var root = new Node(data), node, nodes = [root], child, childs, i, n;
+  while (node = nodes.pop()) {
+    if ((childs = children(node.data)) && (n = (childs = Array.from(childs)).length)) {
+      node.children = childs;
+      for (i = n - 1; i >= 0; --i) {
+        nodes.push(child = childs[i] = new Node(childs[i]));
+        child.parent = node;
+        child.depth = node.depth + 1;
+      }
+    }
+  }
+  return root.eachBefore(computeHeight);
+}
+function node_copy() {
+  return hierarchy(this).eachBefore(copyData);
+}
+function objectChildren(d) {
+  return d.children;
+}
+function mapChildren(d) {
+  return Array.isArray(d) ? d[1] : null;
+}
+function copyData(node) {
+  if (node.data.value !== void 0) node.value = node.data.value;
+  node.data = node.data.data;
+}
+function computeHeight(node) {
+  var height = 0;
+  do
+    node.height = height;
+  while ((node = node.parent) && node.height < ++height);
+}
+function Node(data) {
+  this.data = data;
+  this.depth = this.height = 0;
+  this.parent = null;
+}
+Node.prototype = hierarchy.prototype = {
+  constructor: Node,
+  count: count_default,
+  each: each_default,
+  eachAfter: eachAfter_default,
+  eachBefore: eachBefore_default,
+  find: find_default,
+  sum: sum_default,
+  sort: sort_default,
+  path: path_default,
+  ancestors: ancestors_default,
+  descendants: descendants_default,
+  leaves: leaves_default,
+  links: links_default,
+  copy: node_copy,
+  [Symbol.iterator]: iterator_default
+};
+
+// node_modules/d3-hierarchy/src/treemap/round.js
+function round_default(node) {
+  node.x0 = Math.round(node.x0);
+  node.y0 = Math.round(node.y0);
+  node.x1 = Math.round(node.x1);
+  node.y1 = Math.round(node.y1);
+}
+
+// node_modules/d3-hierarchy/src/treemap/dice.js
+function dice_default(parent, x0, y0, x1, y1) {
+  var nodes = parent.children, node, i = -1, n = nodes.length, k = parent.value && (x1 - x0) / parent.value;
+  while (++i < n) {
+    node = nodes[i], node.y0 = y0, node.y1 = y1;
+    node.x0 = x0, node.x1 = x0 += node.value * k;
+  }
+}
+
+// node_modules/d3-hierarchy/src/partition.js
+function partition_default() {
+  var dx = 1, dy = 1, padding = 0, round = false;
+  function partition(root) {
+    var n = root.height + 1;
+    root.x0 = root.y0 = padding;
+    root.x1 = dx;
+    root.y1 = dy / n;
+    root.eachBefore(positionNode(dy, n));
+    if (round) root.eachBefore(round_default);
+    return root;
+  }
+  function positionNode(dy2, n) {
+    return function(node) {
+      if (node.children) {
+        dice_default(node, node.x0, dy2 * (node.depth + 1) / n, node.x1, dy2 * (node.depth + 2) / n);
+      }
+      var x0 = node.x0, y0 = node.y0, x1 = node.x1 - padding, y1 = node.y1 - padding;
+      if (x1 < x0) x0 = x1 = (x0 + x1) / 2;
+      if (y1 < y0) y0 = y1 = (y0 + y1) / 2;
+      node.x0 = x0;
+      node.y0 = y0;
+      node.x1 = x1;
+      node.y1 = y1;
+    };
+  }
+  partition.round = function(x) {
+    return arguments.length ? (round = !!x, partition) : round;
+  };
+  partition.size = function(x) {
+    return arguments.length ? (dx = +x[0], dy = +x[1], partition) : [dx, dy];
+  };
+  partition.padding = function(x) {
+    return arguments.length ? (padding = +x, partition) : padding;
+  };
+  return partition;
+}
+
+// src/ui/panels/FlameGraph.tsx
 var import_jsx_runtime4 = require("react/jsx-runtime");
+var FlameGraph = ({
+  width = 800,
+  height = 400
+}) => {
+  const { renders, hierarchy: hierarchy2 } = useDevToolsStore();
+  const [selectedNode, setSelectedNode] = (0, import_react4.useState)(null);
+  const rootData = (0, import_react4.useMemo)(() => {
+    if (!hierarchy2 || hierarchy2.length === 0) return null;
+    const buildTree = (nodes) => {
+      return nodes.map((node) => {
+        const componentRenders = renders.filter((r) => r.componentId === node.componentId);
+        const lastRender = componentRenders[componentRenders.length - 1];
+        const duration = lastRender?.duration || 0.1;
+        return {
+          name: node.componentName,
+          value: duration,
+          componentId: node.componentId,
+          actualDuration: duration,
+          children: node.children ? buildTree(node.children) : void 0
+        };
+      });
+    };
+    const children = buildTree(hierarchy2);
+    return {
+      name: "Root",
+      value: 0,
+      // Will be summed by d3
+      componentId: "root",
+      actualDuration: 0,
+      children
+    };
+  }, [hierarchy2, renders]);
+  const root = (0, import_react4.useMemo)(() => {
+    if (!rootData) return null;
+    const hierarchyNode = hierarchy(rootData).sum((d) => d.value).sort((a, b) => (b.value || 0) - (a.value || 0));
+    const partition = partition_default().size([width, height]).padding(1);
+    return partition(hierarchyNode);
+  }, [rootData, width, height]);
+  if (!root) {
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex items-center justify-center h-full text-slate-400", children: "No render data available yet" });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex flex-col h-full", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex-1 overflow-hidden relative bg-slate-900 rounded-lg border border-slate-700", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("svg", { width: "100%", height: "100%", viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: "none", children: root.descendants().map((node, i) => {
+      if (node.depth === 0) return null;
+      const isSelected = selectedNode === node;
+      const color = performanceToColor(node.data.actualDuration, { good: 4, warning: 16 });
+      return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "g",
+        {
+          transform: `translate(${node.x0},${node.y0})`,
+          onClick: () => setSelectedNode(node),
+          className: "cursor-pointer transition-opacity hover:opacity-80",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              "rect",
+              {
+                width: Math.max(0, node.x1 - node.x0),
+                height: Math.max(0, node.y1 - node.y0),
+                fill: color,
+                fillOpacity: isSelected ? 1 : 0.8,
+                stroke: isSelected ? "#fff" : "none",
+                strokeWidth: 2,
+                rx: 2
+              }
+            ),
+            node.x1 - node.x0 > 30 && node.y1 - node.y0 > 14 && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              "text",
+              {
+                x: 4,
+                y: 14,
+                fontSize: 10,
+                fill: "#fff",
+                className: "pointer-events-none font-mono select-none",
+                style: { textShadow: "0 1px 2px rgba(0,0,0,0.5)" },
+                children: node.data.name
+              }
+            )
+          ]
+        },
+        `${node.data.componentId}-${i}`
+      );
+    }) }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "h-16 border-t border-slate-700 p-2 bg-slate-800 flex items-center justify-between", children: [
+      selectedNode ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "font-bold text-slate-200", children: selectedNode.data.name }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "text-xs text-slate-400 font-mono", children: [
+          "Duration: ",
+          selectedNode.data.actualDuration.toFixed(2),
+          "ms",
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "mx-2", children: "\u2022" }),
+          "Depth: ",
+          selectedNode.depth
+        ] })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "text-slate-500 text-sm italic", children: "Click a bar to view details" }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "text-xs text-slate-500", children: "Flame Graph" })
+    ] })
+  ] });
+};
+
+// src/ui/panels/ComponentTree.tsx
+var import_react5 = require("react");
+var import_jsx_runtime5 = require("react/jsx-runtime");
+var TreeNode = ({
+  node,
+  depth,
+  onSelect,
+  selectedId,
+  metricsMap,
+  slowThreshold
+}) => {
+  const [isExpanded, setIsExpanded] = (0, import_react5.useState)(true);
+  const hasChildren = node.children && node.children.length > 0;
+  const isSelected = node.componentId === selectedId;
+  const metric = metricsMap.get(node.componentId);
+  const renderCount = metric?.renderCount ?? 0;
+  const lastRenderTime = metric?.lastRenderTime ?? 0;
+  const badgeColor = metric ? performanceToColor(lastRenderTime, { good: slowThreshold / 2, warning: slowThreshold }) : void 0;
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "select-none", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: `
+          flex items-center py-1 px-2 hover:bg-slate-800 cursor-pointer
+          ${isSelected ? "bg-blue-900/30 border-l-2 border-blue-500" : "border-l-2 border-transparent"}
+        `,
+        style: { paddingLeft: `${depth * 16 + 8}px` },
+        onClick: () => onSelect(node.componentId),
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              className: `w-4 h-4 mr-1 flex items-center justify-center text-slate-400 hover:text-white ${!hasChildren ? "invisible" : ""}`,
+              onClick: (e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              },
+              children: isExpanded ? "\u25BC" : "\u25B6"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "text-sm font-mono text-slate-300 truncate mr-2", children: node.componentName }),
+          renderCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "span",
+            {
+              className: "ml-auto text-xs px-1.5 py-0.5 rounded-full text-slate-900 font-medium min-w-[20px] text-center",
+              style: { backgroundColor: badgeColor || "#94a3b8" },
+              title: `Last render: ${lastRenderTime.toFixed(2)}ms | Total renders: ${renderCount}`,
+              children: renderCount
+            }
+          )
+        ]
+      }
+    ),
+    isExpanded && hasChildren && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: node.children.map((child) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      TreeNode,
+      {
+        node: child,
+        depth: depth + 1,
+        onSelect,
+        selectedId,
+        metricsMap,
+        slowThreshold
+      },
+      child.componentId
+    )) })
+  ] });
+};
+var ComponentTree = () => {
+  const { hierarchy: hierarchy2, selectedComponentId, setSelectedComponent, metrics, slowThreshold } = useDevToolsStore();
+  const metricsMap = (0, import_react5.useMemo)(() => {
+    return new Map(metrics.map((m) => [m.componentId, m]));
+  }, [metrics]);
+  if (!hierarchy2 || hierarchy2.length === 0) {
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "flex items-center justify-center h-full text-slate-400 p-4", children: [
+      "No component hierarchy detected.",
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("br", {}),
+      "Make sure to use 'withWhyRender' or 'useWhyRender' in your components."
+    ] });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "h-full overflow-y-auto why-render-scrollbar bg-slate-900/50", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "p-2", children: hierarchy2.map((node) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+    TreeNode,
+    {
+      node,
+      depth: 0,
+      onSelect: setSelectedComponent,
+      selectedId: selectedComponentId,
+      metricsMap,
+      slowThreshold
+    },
+    node.componentId
+  )) }) });
+};
+
+// src/ui/WhyRenderDevTools.tsx
+var import_jsx_runtime6 = require("react/jsx-runtime");
 var WhyRenderDevTools = ({
   slowThreshold = 16,
   position = "bottom-right",
@@ -1049,10 +1522,10 @@ var WhyRenderDevTools = ({
     updateHierarchy,
     updateMetrics
   } = useDevToolsStore();
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     globalPerformanceMonitor.setSlowThreshold(slowThreshold);
   }, [slowThreshold]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     const syncData = () => {
       const exportedData = globalRenderTracker.export();
       updateRenders(exportedData.history);
@@ -1065,7 +1538,7 @@ var WhyRenderDevTools = ({
       unsubscribe();
     };
   }, [updateRenders, updateHierarchy, updateMetrics]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     const handleKeyDown = (e) => {
       const parts = toggleShortcut.split("+");
       const meta = parts.includes("Meta") ? e.metaKey : false;
@@ -1093,7 +1566,7 @@ var WhyRenderDevTools = ({
   const renderPanel = () => {
     switch (activePanel) {
       case "timeline":
-        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           RenderTimeline,
           {
             events: renders,
@@ -1107,9 +1580,9 @@ var WhyRenderDevTools = ({
         );
       case "stats":
         if (!selectedMetrics || !latestRender) {
-          return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex items-center justify-center h-full text-slate-400", children: "Select a component from the timeline" });
+          return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center justify-center h-full text-slate-400", children: "Select a component from the timeline" });
         }
-        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           ComponentStats,
           {
             metrics: selectedMetrics,
@@ -1119,17 +1592,21 @@ var WhyRenderDevTools = ({
         );
       case "diff":
         if (!latestRender) {
-          return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex items-center justify-center h-full text-slate-400", children: "Select a component from the timeline" });
+          return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex items-center justify-center h-full text-slate-400", children: "Select a component from the timeline" });
         }
-        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           DiffViewer,
           {
             changes: latestRender.changes,
             componentName: latestRender.componentName
           }
         );
+      case "flamegraph":
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FlameGraph, {});
+      case "tree":
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ComponentTree, {});
       default:
-        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           RenderTimeline,
           {
             events: renders,
@@ -1140,8 +1617,15 @@ var WhyRenderDevTools = ({
         );
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
-    !isOpen && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+  const tabs = [
+    { id: "timeline", label: "Timeline", icon: "\u23F1\uFE0F" },
+    { id: "stats", label: "Stats", icon: "\u{1F4CA}" },
+    { id: "diff", label: "Diff", icon: "\u{1F4DD}" },
+    { id: "flamegraph", label: "Flame", icon: "\u{1F525}" },
+    { id: "tree", label: "Tree", icon: "\u{1F333}" }
+  ];
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+    !isOpen && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
       "button",
       {
         onClick: toggleOpen,
@@ -1155,14 +1639,14 @@ var WhyRenderDevTools = ({
           `,
         title: `Toggle DevTools (${toggleShortcut})`,
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
             "svg",
             {
               className: "w-4 h-4",
               fill: "none",
               viewBox: "0 0 24 24",
               stroke: "currentColor",
-              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                 "path",
                 {
                   strokeLinecap: "round",
@@ -1177,26 +1661,26 @@ var WhyRenderDevTools = ({
         ]
       }
     ),
-    isOpen && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    isOpen && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
       "div",
       {
         className: "fixed inset-0 z-[9998] flex items-end justify-end p-4 pointer-events-none",
         style: { fontFamily: "system-ui, sans-serif" },
-        children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
           "div",
           {
             className: "\n              w-full max-w-4xl h-[600px]\n              why-render-panel\n              flex flex-col\n              pointer-events-auto\n              animate-slide-in-up\n            ",
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex items-center justify-between p-4 border-b border-slate-700", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "flex items-center gap-3", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center justify-between p-4 border-b border-slate-700", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "flex items-center gap-3", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                     "svg",
                     {
                       className: "w-6 h-6 text-blue-400",
                       fill: "none",
                       viewBox: "0 0 24 24",
                       stroke: "currentColor",
-                      children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                      children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                         "path",
                         {
                           strokeLinecap: "round",
@@ -1207,23 +1691,23 @@ var WhyRenderDevTools = ({
                       )
                     }
                   ),
-                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h2", { className: "text-xl font-bold text-slate-100", children: "Why Render DevTools" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "text-xs text-slate-500", children: "v0.1.0" })
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("h2", { className: "text-xl font-bold text-slate-100", children: "Why Render DevTools" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "text-xs text-slate-500", children: "v0.1.0" })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                   "button",
                   {
                     onClick: toggleOpen,
                     className: "p-2 hover:bg-slate-800 rounded-lg transition-colors",
                     title: "Close (Esc)",
-                    children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                    children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                       "svg",
                       {
                         className: "w-5 h-5 text-slate-400",
                         fill: "none",
                         viewBox: "0 0 24 24",
                         stroke: "currentColor",
-                        children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                        children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                           "path",
                           {
                             strokeLinecap: "round",
@@ -1237,27 +1721,23 @@ var WhyRenderDevTools = ({
                   }
                 )
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex border-b border-slate-700", children: [
-                { key: "timeline", label: "Timeline", icon: "\u{1F4CA}" },
-                { key: "stats", label: "Stats", icon: "\u{1F4C8}" },
-                { key: "diff", label: "Diff", icon: "\u{1F50D}" }
-              ].map((tab) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex border-b border-slate-700", children: tabs.map((tab) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
                 "button",
                 {
-                  onClick: () => setActivePanel(tab.key),
+                  onClick: () => setActivePanel(tab.id),
                   className: `
                     px-4 py-2 font-medium text-sm transition-colors
                     border-b-2 flex items-center gap-2
-                    ${activePanel === tab.key || activePanel === null && tab.key === "timeline" ? "text-blue-400 border-blue-400" : "text-slate-400 border-transparent hover:text-slate-300"}
+                    ${activePanel === tab.id || activePanel === null && tab.id === "timeline" ? "text-blue-400 border-blue-400" : "text-slate-400 border-transparent hover:text-slate-300"}
                   `,
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: tab.icon }),
+                    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: tab.icon }),
                     tab.label
                   ]
                 },
-                tab.key
+                tab.id
               )) }),
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "flex-1 overflow-hidden", children: renderPanel() })
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "flex-1 overflow-hidden", children: renderPanel() })
             ]
           }
         )
@@ -1267,8 +1747,8 @@ var WhyRenderDevTools = ({
 };
 
 // src/ui/components/PerformanceBadge.tsx
-var import_react5 = require("react");
-var import_jsx_runtime5 = require("react/jsx-runtime");
+var import_react7 = require("react");
+var import_jsx_runtime7 = require("react/jsx-runtime");
 var PerformanceBadge = ({
   renderCount,
   componentName,
@@ -1277,9 +1757,9 @@ var PerformanceBadge = ({
   position = "top-right",
   inline = false
 }) => {
-  const [isGlowing, setIsGlowing] = (0, import_react5.useState)(false);
-  const [prevCount, setPrevCount] = (0, import_react5.useState)(renderCount);
-  (0, import_react5.useEffect)(() => {
+  const [isGlowing, setIsGlowing] = (0, import_react7.useState)(false);
+  const [prevCount, setPrevCount] = (0, import_react7.useState)(renderCount);
+  (0, import_react7.useEffect)(() => {
     if (renderCount > prevCount) {
       setIsGlowing(true);
       const timeout = setTimeout(() => setIsGlowing(false), 500);
@@ -1310,15 +1790,15 @@ var PerformanceBadge = ({
     ${!inline ? `fixed ${positionClasses[position]} z-[9999]` : ""}
     transition-all duration-300
   `;
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: badgeClass, title: componentName, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: badgeClass, title: componentName, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       "svg",
       {
         className: "w-3 h-3",
         fill: "none",
         viewBox: "0 0 24 24",
         stroke: "currentColor",
-        children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           "path",
           {
             strokeLinecap: "round",
@@ -1329,8 +1809,8 @@ var PerformanceBadge = ({
         )
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "font-mono", children: renderCount }),
-    lastRenderDuration !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "opacity-70 font-mono", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "font-mono", children: renderCount }),
+    lastRenderDuration !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "opacity-70 font-mono", children: [
       lastRenderDuration.toFixed(1),
       "ms"
     ] })

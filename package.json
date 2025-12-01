@@ -1,5 +1,5 @@
 {
-  "name": "@mouaad-idoufkir/why-render",
+  "name": "@mouaad_idoufkir/why-render",
   "version": "0.1.0",
   "type": "module",
   "description": "A comprehensive React 19 developer tool that detects unnecessary re-renders with visual debugging panels, performance monitoring, and AI-powered suggestions.",
@@ -8,19 +8,19 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./ui": {
+      "types": "./dist/ui.d.ts",
       "import": "./dist/ui.mjs",
-      "require": "./dist/ui.js",
-      "types": "./dist/ui.d.ts"
+      "require": "./dist/ui.js"
     },
     "./overlays": {
+      "types": "./dist/overlays.d.ts",
       "import": "./dist/overlays.mjs",
-      "require": "./dist/overlays.js",
-      "types": "./dist/overlays.d.ts"
+      "require": "./dist/overlays.js"
     }
   },
   "sideEffects": false,
@@ -51,6 +51,14 @@
   ],
   "author": "Mouaad Idoufkir",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mouuuuaad/mouaad-idoufkir-why-render.git"
+  },
+  "homepage": "https://github.com/mouuuuaad/mouaad-idoufkir-why-render#readme",
+  "bugs": {
+    "url": "https://github.com/mouuuuaad/mouaad-idoufkir-why-render/issues"
+  },
   "dependencies": {
     "zustand": "^4.5.0"
   },
