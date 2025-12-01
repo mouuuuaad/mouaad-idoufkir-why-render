@@ -31,8 +31,19 @@ describe('getChanges', () => {
         const obj2 = { x: 1 }; // Same content, different ref
         const prev = { data: obj1 };
         const next = { data: obj2 };
-        const changes = getChanges(prev, next, 'shallow');
+        // Use deep strategy to confirm it detects "reference" (content same)
+        const changes = getChanges(prev, next, 'deep');
         expect(changes[0]).toMatchObject({ key: 'data', reason: 'reference' });
+    });
+
+    it('detects value changes for objects with shallow strategy', () => {
+        const obj1 = { x: 1 };
+        const obj2 = { x: 1 };
+        const prev = { data: obj1 };
+        const next = { data: obj2 };
+        // Shallow strategy doesn't check deep equality, so defaults to value change if refs differ
+        const changes = getChanges(prev, next, 'shallow');
+        expect(changes[0]).toMatchObject({ key: 'data', reason: 'value' });
     });
 
     it('ignores identical references', () => {

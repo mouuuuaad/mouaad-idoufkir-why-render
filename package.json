@@ -1,6 +1,7 @@
 {
   "name": "@mouaad-idoufkir/why-render",
   "version": "0.0.1",
+  "type": "module",
   "description": "A minimal-bundle library for React 19 that detects and explains unnecessary re-renders.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

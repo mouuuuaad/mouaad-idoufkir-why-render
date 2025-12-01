@@ -1,6 +1,11 @@
-import { useRef, useEffect, forwardRef } from 'react';
-import { jsx } from 'react/jsx-runtime';
+'use strict';
 
+var react = require('react');
+var jsxRuntime = require('react/jsx-runtime');
+
+// src/hooks/useWhyRender.ts
+
+// src/utils/diff.ts
 function isObject(x) {
   return typeof x === "object" && x !== null;
 }
@@ -87,13 +92,13 @@ function useWhyRender(props, componentName, options) {
   if (!shouldInstrument()) {
     return { lastProps: null, changes: [] };
   }
-  const idRef = useRef(null);
+  const idRef = react.useRef(null);
   if (!idRef.current) {
     idRef.current = {};
   }
-  const lastProps = useRef(null);
-  const changesRef = useRef([]);
-  const renderCount = useRef(0);
+  const lastProps = react.useRef(null);
+  const changesRef = react.useRef([]);
+  const renderCount = react.useRef(0);
   const name = componentName || "Component";
   const strategy = options?.compareStrategy || "shallow";
   if (lastProps.current) {
@@ -134,10 +139,10 @@ function useWhyRender(props, componentName, options) {
     }
   }
   renderCount.current++;
-  useEffect(() => {
+  react.useEffect(() => {
     lastProps.current = props;
   });
-  useEffect(() => {
+  react.useEffect(() => {
     if (idRef.current) {
       componentRegistry.set(idRef.current, name);
     }
@@ -151,10 +156,10 @@ useWhyRender.track = () => {
   return Symbol("why-render-token");
 };
 function withWhyRender(Component, options) {
-  const WrappedComponent = forwardRef((props, ref) => {
+  const WrappedComponent = react.forwardRef((props, ref) => {
     const componentName = Component.displayName || Component.name || "Component";
     useWhyRender(props, componentName, options);
-    return /* @__PURE__ */ jsx(Component, { ...props, ref });
+    return /* @__PURE__ */ jsxRuntime.jsx(Component, { ...props, ref });
   });
   WrappedComponent.displayName = `withWhyRender(${Component.displayName || Component.name || "Component"})`;
   return WrappedComponent;
@@ -163,6 +168,7 @@ function withWhyRender(Component, options) {
 // src/index.ts
 var useWhyRenderExport = useWhyRender;
 
-export { useWhyRenderExport as useWhyRender, withWhyRender };
-//# sourceMappingURL=index.js.map
-//# sourceMappingURL=index.js.map
+exports.useWhyRender = useWhyRenderExport;
+exports.withWhyRender = withWhyRender;
+//# sourceMappingURL=index.cjs.map
+//# sourceMappingURL=index.cjs.map

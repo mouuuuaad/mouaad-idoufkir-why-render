@@ -30,10 +30,20 @@ const App = () => {
 
             <hr />
             <h3>Case 2: Stable Props</h3>
-            <p>Clicking "Force Re-render Parent" should NOT re-render MemoizedChild if props are stable (but here `handleClick` is not stable, so it will still re-render unless we use stableClick).</p>
+            <p>Clicking "Force Re-render Parent" should NOT re-render MemoizedChild if props are stable.</p>
             <MemoizedChild count={count} onClick={stableClick} />
+
+            <hr />
+            <h3>Case 3: Deep Comparison</h3>
+            <p>This component uses `compareStrategy: 'deep'`. It should NOT re-render if object content is same.</p>
+            <DeepChild data={{ x: 1, y: { z: 2 } }} />
         </div>
     );
 };
+
+const DeepChild = withWhyRender(({ data }: { data: any }) => {
+    return <div>Deep Child Data: {JSON.stringify(data)}</div>;
+}, { compareStrategy: 'deep', verbose: true });
+
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />);

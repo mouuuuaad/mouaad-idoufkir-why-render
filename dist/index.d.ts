@@ -22,4 +22,9 @@ declare function useWhyRender<TProps = any>(props: TProps, componentName?: strin
 
 declare function withWhyRender<TProps extends object>(Component: React.ComponentType<TProps>, options?: Options): React.FC<TProps>;
 
-export { type Change, type CompareStrategy, type Options, useWhyRender, withWhyRender };
+type UseWhyRender = typeof useWhyRender & {
+    track: () => symbol;
+};
+declare const useWhyRenderExport: UseWhyRender;
+
+export { type Change, type CompareStrategy, type Options, type UseWhyRender, useWhyRenderExport as useWhyRender, withWhyRender };
