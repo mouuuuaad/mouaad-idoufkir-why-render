@@ -164,4 +164,4 @@ Contributions are welcome! Please read our [Architecture Guide](ARCHITECTURE.md)
 
 ## 📄 License
 
-MIT © [Mouaad Idoufkir](https://github.com/mouaad-idoufkir)
+MIT © [Mouaad Idoufkir](https://github.com/mouuuuaad)
