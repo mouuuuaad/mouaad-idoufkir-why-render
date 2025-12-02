@@ -1,4 +1,5 @@
 import React from 'react';
+import { R as RenderEvent, C as Change } from './types-D18qxgqb.cjs';
 
 /**
  * Main DevTools Wrapper Component
@@ -45,6 +46,20 @@ interface PerformanceBadgeProps {
 declare const PerformanceBadge: React.FC<PerformanceBadgeProps>;
 
 /**
+ * Render Timeline Panel
+ * Shows chronological render events with performance visualization
+ */
+
+interface RenderTimelineProps {
+    events: RenderEvent[];
+    slowThreshold?: number;
+    maxEvents?: number;
+    onSelectEvent?: (event: RenderEvent) => void;
+    selectedEventId?: string;
+}
+declare const RenderTimeline: React.FC<RenderTimelineProps>;
+
+/**
  * Performance monitoring for React components
  * Tracks render duration, detects slow renders, monitors transitions
  */
@@ -59,43 +74,6 @@ interface PerformanceMetrics {
     maxRenderTime: number;
     minRenderTime: number;
 }
-
-type Change = {
-    key: string;
-    reason: "value" | "type" | "function" | "reference" | "length";
-    oldValue: any;
-    newValue: any;
-};
-
-/**
- * Core render tracking engine
- * Tracks component renders, prop changes, and maintains render history
- */
-
-interface RenderEvent {
-    id: string;
-    componentName: string;
-    componentId: string;
-    timestamp: number;
-    duration: number;
-    changes: Change[];
-    props: any;
-    renderCount: number;
-}
-
-/**
- * Render Timeline Panel
- * Shows chronological render events with performance visualization
- */
-
-interface RenderTimelineProps {
-    events: RenderEvent[];
-    slowThreshold?: number;
-    maxEvents?: number;
-    onSelectEvent?: (event: RenderEvent) => void;
-    selectedEventId?: string;
-}
-declare const RenderTimeline: React.FC<RenderTimelineProps>;
 
 /**
  * Component Stats Panel

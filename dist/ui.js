@@ -1,406 +1,16 @@
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+import {
+  globalPerformanceMonitor,
+  globalRenderTracker
+} from "./chunk-7MZUDFGY.js";
+import {
+  useDevToolsStore
+} from "./chunk-DOIGLAQ4.js";
+import {
+  globalEventEmitter
+} from "./chunk-WISWZH32.js";
 
 // src/ui/WhyRenderDevTools.tsx
 import { useEffect } from "react";
-
-// src/store/index.ts
-import { create } from "zustand";
-var useDevToolsStore = create((set) => ({
-  // Initial state
-  isOpen: false,
-  activePanel: null,
-  selectedComponentId: null,
-  showHeatmap: false,
-  showFlash: true,
-  showGrid: false,
-  renders: [],
-  hierarchy: [],
-  metrics: [],
-  searchQuery: "",
-  minDuration: 0,
-  maxRenders: 1e3,
-  slowThreshold: 16,
-  maxHistorySize: 1e3,
-  autoScroll: true,
-  // Actions
-  toggleOpen: () => set((state) => ({ isOpen: !state.isOpen })),
-  setActivePanel: (panel) => set({ activePanel: panel }),
-  setSelectedComponent: (componentId) => set({ selectedComponentId: componentId }),
-  toggleHeatmap: () => set((state) => ({ showHeatmap: !state.showHeatmap })),
-  toggleFlash: () => set((state) => ({ showFlash: !state.showFlash })),
-  toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
-  updateRenders: (renders) => set({ renders }),
-  updateHierarchy: (hierarchy2) => set({ hierarchy: hierarchy2 }),
-  updateMetrics: (metrics) => set({ metrics }),
-  setSearchQuery: (query) => set({ searchQuery: query }),
-  setMinDuration: (ms) => set({ minDuration: ms }),
-  setMaxRenders: (count2) => set({ maxRenders: count2 }),
-  setSlowThreshold: (ms) => set({ slowThreshold: ms }),
-  clearData: () => set({
-    renders: [],
-    hierarchy: [],
-    metrics: [],
-    selectedComponentId: null
-  })
-}));
-
-// src/engine/EventEmitter.ts
-var EventEmitter = class {
-  constructor() {
-    __publicField(this, "listeners", /* @__PURE__ */ new Map());
-  }
-  /**
-   * Subscribe to an event
-   */
-  on(event, handler) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, /* @__PURE__ */ new Set());
-    }
-    this.listeners.get(event).add(handler);
-    return () => this.off(event, handler);
-  }
-  /**
-   * Unsubscribe from an event
-   */
-  off(event, handler) {
-    const handlers = this.listeners.get(event);
-    if (handlers) {
-      handlers.delete(handler);
-    }
-  }
-  /**
-   * Emit an event to all subscribers
-   */
-  emit(event, payload) {
-    const handlers = this.listeners.get(event);
-    if (handlers) {
-      handlers.forEach((handler) => {
-        try {
-          handler(payload);
-        } catch (error) {
-          console.error(`[why-render] Error in event handler for ${event}:`, error);
-        }
-      });
-    }
-  }
-  /**
-   * Subscribe to an event once (auto-unsubscribe after first call)
-   */
-  once(event, handler) {
-    const wrappedHandler = (payload) => {
-      handler(payload);
-      this.off(event, wrappedHandler);
-    };
-    return this.on(event, wrappedHandler);
-  }
-  /**
-   * Remove all listeners for a specific event or all events
-   */
-  clear(event) {
-    if (event) {
-      this.listeners.delete(event);
-    } else {
-      this.listeners.clear();
-    }
-  }
-  /**
-   * Get listener count for an event
-   */
-  listenerCount(event) {
-    return this.listeners.get(event)?.size ?? 0;
-  }
-};
-var globalEventEmitter = new EventEmitter();
-
-// src/engine/PerformanceMonitor.ts
-var DEFAULT_SLOW_THRESHOLD = 16;
-var PerformanceMonitor = class {
-  constructor(options = {}) {
-    __publicField(this, "metrics", /* @__PURE__ */ new Map());
-    __publicField(this, "activeRenders", /* @__PURE__ */ new Map());
-    __publicField(this, "options");
-    this.options = {
-      slowThresholdMs: options.slowThresholdMs ?? DEFAULT_SLOW_THRESHOLD,
-      enableMarks: options.enableMarks ?? false
-    };
-  }
-  /**
-   * Mark the start of a component render
-   */
-  markRenderStart(componentName, componentId) {
-    const timestamp = performance.now();
-    this.activeRenders.set(componentId, timestamp);
-    if (this.options.enableMarks) {
-      performance.mark(`${componentName}:${componentId}:start`);
-    }
-    globalEventEmitter.emit("render:start", {
-      componentName,
-      componentId,
-      timestamp
-    });
-  }
-  /**
-   * Mark the end of a component render and record metrics
-   */
-  markRenderEnd(componentName, componentId) {
-    const endTime = performance.now();
-    const startTime = this.activeRenders.get(componentId);
-    if (!startTime) {
-      console.warn(`[why-render] No start time found for ${componentName}:${componentId}`);
-      return 0;
-    }
-    const duration = endTime - startTime;
-    this.activeRenders.delete(componentId);
-    if (this.options.enableMarks) {
-      const markName = `${componentName}:${componentId}`;
-      performance.mark(`${markName}:end`);
-      performance.measure(markName, `${markName}:start`, `${markName}:end`);
-    }
-    this.updateMetrics(componentName, componentId, duration);
-    globalEventEmitter.emit("render:end", {
-      componentName,
-      componentId,
-      timestamp: endTime,
-      duration
-    });
-    if (duration > this.options.slowThresholdMs) {
-      globalEventEmitter.emit("performance:warning", {
-        componentName,
-        componentId,
-        duration,
-        threshold: this.options.slowThresholdMs
-      });
-    }
-    return duration;
-  }
-  /**
-   * Update performance metrics for a component
-   */
-  updateMetrics(componentName, componentId, duration) {
-    const existing = this.metrics.get(componentId);
-    if (existing) {
-      const newRenderCount = existing.renderCount + 1;
-      const newTotalTime = existing.totalTime + duration;
-      this.metrics.set(componentId, {
-        componentName,
-        componentId,
-        renderCount: newRenderCount,
-        totalTime: newTotalTime,
-        averageTime: newTotalTime / newRenderCount,
-        lastRenderTime: duration,
-        slowRenders: duration > this.options.slowThresholdMs ? existing.slowRenders + 1 : existing.slowRenders,
-        maxRenderTime: Math.max(existing.maxRenderTime, duration),
-        minRenderTime: Math.min(existing.minRenderTime, duration)
-      });
-    } else {
-      this.metrics.set(componentId, {
-        componentName,
-        componentId,
-        renderCount: 1,
-        totalTime: duration,
-        averageTime: duration,
-        lastRenderTime: duration,
-        slowRenders: duration > this.options.slowThresholdMs ? 1 : 0,
-        maxRenderTime: duration,
-        minRenderTime: duration
-      });
-    }
-  }
-  /**
-   * Get metrics for a specific component
-   */
-  getMetrics(componentId) {
-    return this.metrics.get(componentId);
-  }
-  /**
-   * Get all metrics
-   */
-  getAllMetrics() {
-    return Array.from(this.metrics.values());
-  }
-  /**
-   * Get components sorted by total render time
-   */
-  getSlowestComponents(limit = 10) {
-    return Array.from(this.metrics.values()).sort((a, b) => b.totalTime - a.totalTime).slice(0, limit);
-  }
-  /**
-   * Get components with most renders
-   */
-  getMostRenderedComponents(limit = 10) {
-    return Array.from(this.metrics.values()).sort((a, b) => b.renderCount - a.renderCount).slice(0, limit);
-  }
-  /**
-   * Clear metrics for a component or all components
-   */
-  clearMetrics(componentId) {
-    if (componentId) {
-      this.metrics.delete(componentId);
-    } else {
-      this.metrics.clear();
-    }
-  }
-  /**
-   * Update slow threshold
-   */
-  setSlowThreshold(thresholdMs) {
-    this.options.slowThresholdMs = thresholdMs;
-  }
-};
-var globalPerformanceMonitor = new PerformanceMonitor();
-
-// src/engine/RenderTracker.ts
-var RenderTracker = class {
-  constructor(maxHistorySize = 1e3) {
-    __publicField(this, "renderHistory", /* @__PURE__ */ new Map());
-    __publicField(this, "componentHierarchy", /* @__PURE__ */ new Map());
-    __publicField(this, "componentRenderCounts", /* @__PURE__ */ new Map());
-    __publicField(this, "maxHistorySize");
-    this.maxHistorySize = maxHistorySize;
-  }
-  /**
-   * Track a component render
-   */
-  trackRender(componentName, componentId, props, changes) {
-    const timestamp = performance.now();
-    globalPerformanceMonitor.markRenderStart(componentName, componentId);
-    const renderCount = (this.componentRenderCounts.get(componentId) ?? 0) + 1;
-    this.componentRenderCounts.set(componentId, renderCount);
-    if (changes.length > 0) {
-      globalEventEmitter.emit("change:detected", {
-        componentName,
-        componentId,
-        changes
-      });
-    }
-    const eventId = `${componentId}-${timestamp}`;
-    this.renderHistory.set(eventId, {
-      id: eventId,
-      componentName,
-      componentId,
-      timestamp,
-      duration: 0,
-      // Will be set in commitRender
-      changes,
-      props,
-      renderCount
-    });
-    if (this.renderHistory.size > this.maxHistorySize) {
-      const firstKey = this.renderHistory.keys().next().value;
-      if (firstKey) {
-        this.renderHistory.delete(firstKey);
-      }
-    }
-  }
-  /**
-   * Commit a render (called after render completes)
-   */
-  commitRender(componentName, componentId) {
-    const duration = globalPerformanceMonitor.markRenderEnd(componentName, componentId);
-    const recentEvent = Array.from(this.renderHistory.values()).reverse().find((event) => event.componentId === componentId);
-    if (recentEvent) {
-      recentEvent.duration = duration;
-    }
-  }
-  /**
-   * Register a component in the hierarchy
-   */
-  registerComponent(componentName, componentId, parentId) {
-    const parent = parentId ? this.componentHierarchy.get(parentId) : void 0;
-    const depth = parent ? parent.depth + 1 : 0;
-    const node = {
-      componentName,
-      componentId,
-      children: [],
-      parent,
-      depth
-    };
-    this.componentHierarchy.set(componentId, node);
-    if (parent) {
-      parent.children.push(node);
-    }
-    globalEventEmitter.emit("component:mounted", {
-      componentName,
-      componentId
-    });
-  }
-  /**
-   * Unregister a component from the hierarchy
-   */
-  unregisterComponent(componentId) {
-    const node = this.componentHierarchy.get(componentId);
-    if (node) {
-      if (node.parent) {
-        node.parent.children = node.parent.children.filter(
-          (child) => child.componentId !== componentId
-        );
-      }
-      this.componentHierarchy.delete(componentId);
-      globalEventEmitter.emit("component:unmounted", {
-        componentName: node.componentName,
-        componentId
-      });
-    }
-  }
-  /**
-   * Get render history for a component
-   */
-  getComponentHistory(componentId) {
-    return Array.from(this.renderHistory.values()).filter((event) => event.componentId === componentId).sort((a, b) => a.timestamp - b.timestamp);
-  }
-  /**
-   * Get all render history
-   */
-  getAllHistory() {
-    return Array.from(this.renderHistory.values()).sort((a, b) => a.timestamp - b.timestamp);
-  }
-  /**
-   * Get recent renders (last N)
-   */
-  getRecentRenders(limit = 50) {
-    return Array.from(this.renderHistory.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
-  }
-  /**
-   * Get component hierarchy tree
-   */
-  getHierarchy() {
-    return Array.from(this.componentHierarchy.values()).filter((node) => !node.parent);
-  }
-  /**
-   * Get a specific component node
-   */
-  getComponentNode(componentId) {
-    return this.componentHierarchy.get(componentId);
-  }
-  /**
-   * Get render count for a component
-   */
-  getRenderCount(componentId) {
-    return this.componentRenderCounts.get(componentId) ?? 0;
-  }
-  /**
-   * Clear all tracking data
-   */
-  clear() {
-    this.renderHistory.clear();
-    this.componentHierarchy.clear();
-    this.componentRenderCounts.clear();
-    globalPerformanceMonitor.clearMetrics();
-  }
-  /**
-   * Export data for debugging/reports
-   */
-  export() {
-    return {
-      history: this.getAllHistory(),
-      hierarchy: this.getHierarchy(),
-      metrics: globalPerformanceMonitor.getAllMetrics()
-    };
-  }
-};
-var globalRenderTracker = new RenderTracker();
 
 // src/ui/panels/RenderTimeline.tsx
 import { useMemo } from "react";
@@ -450,11 +60,11 @@ var RenderTimeline = ({
     return Math.max(10, duration / maxDuration * 100);
   };
   if (recentEvents.length === 0) {
-    return /* @__PURE__ */ jsx("div", { className: "flex items-center justify-center h-64 text-slate-400", children: /* @__PURE__ */ jsxs("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsx(
+    return /* @__PURE__ */ jsxs("div", { className: "flex flex-col items-center justify-center h-full text-slate-400 p-8", children: [
+      /* @__PURE__ */ jsx("div", { className: "w-16 h-16 mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 shadow-inner", children: /* @__PURE__ */ jsx(
         "svg",
         {
-          className: "w-12 h-12 mx-auto mb-2 opacity-50",
+          className: "w-8 h-8 text-slate-500",
           fill: "none",
           viewBox: "0 0 24 24",
           stroke: "currentColor",
@@ -463,76 +73,85 @@ var RenderTimeline = ({
             {
               strokeLinecap: "round",
               strokeLinejoin: "round",
-              strokeWidth: 2,
+              strokeWidth: 1.5,
               d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
             }
           )
         }
-      ),
-      /* @__PURE__ */ jsx("p", { children: "No renders recorded yet" })
-    ] }) });
+      ) }),
+      /* @__PURE__ */ jsx("h3", { className: "text-lg font-medium text-slate-300 mb-1", children: "No renders recorded yet" }),
+      /* @__PURE__ */ jsx("p", { className: "text-sm text-slate-500 text-center max-w-xs", children: "Interact with your application to capture render events and performance metrics." })
+    ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: "h-full flex flex-col", children: [
-    /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between p-4 border-b border-slate-700", children: [
-      /* @__PURE__ */ jsx("h3", { className: "text-lg font-semibold text-slate-200", children: "Render Timeline" }),
-      /* @__PURE__ */ jsxs("span", { className: "text-sm text-slate-400", children: [
+    /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between px-4 py-3 border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-sm", children: [
+      /* @__PURE__ */ jsxs("h3", { className: "text-sm font-semibold text-slate-200 flex items-center gap-2", children: [
+        /* @__PURE__ */ jsx("span", { className: "w-1.5 h-1.5 rounded-full bg-indigo-500" }),
+        "Render Timeline"
+      ] }),
+      /* @__PURE__ */ jsxs("span", { className: "text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 border border-slate-600/30", children: [
         events.length,
-        " total renders"
+        " events"
       ] })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: "flex-1 overflow-y-auto why-render-scrollbar", children: /* @__PURE__ */ jsx("div", { className: "p-4 space-y-2", children: recentEvents.map((event) => /* @__PURE__ */ jsxs(
+    /* @__PURE__ */ jsx("div", { className: "flex-1 overflow-y-auto why-render-scrollbar p-4 space-y-3", children: recentEvents.map((event, index) => /* @__PURE__ */ jsxs(
       "div",
       {
         className: `
-                group relative p-3 rounded-lg border cursor-pointer transition-all
-                ${selectedEventId === event.id ? "bg-blue-500/10 border-blue-500/50" : "bg-slate-800 border-slate-700 hover:border-slate-600"}
-              `,
+              group relative p-3 rounded-xl border cursor-pointer transition-all duration-200
+              ${selectedEventId === event.id ? "bg-indigo-500/10 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]" : "bg-slate-800/40 border-slate-700/40 hover:bg-slate-800/60 hover:border-slate-600/60 hover:shadow-lg hover:-translate-y-0.5"}
+              animate-slide-in-right
+            `,
+        style: { animationDelay: `${index * 50}ms` },
         onClick: () => onSelectEvent?.(event),
         children: [
-          /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-2", children: [
+          /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-2.5", children: [
             /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsx("span", { className: "text-sm font-medium text-slate-200", children: event.componentName }),
-              /* @__PURE__ */ jsxs("span", { className: "text-xs text-slate-500", children: [
+              /* @__PURE__ */ jsx("span", { className: `text-sm font-semibold tracking-tight ${selectedEventId === event.id ? "text-indigo-300" : "text-slate-200"}`, children: event.componentName }),
+              /* @__PURE__ */ jsxs("span", { className: "text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/30", children: [
                 "#",
                 event.renderCount
               ] })
             ] }),
-            /* @__PURE__ */ jsx("span", { className: "text-xs font-mono text-slate-400", children: formatTimestamp(event.timestamp) })
+            /* @__PURE__ */ jsx("span", { className: "text-[10px] font-mono text-slate-500 bg-slate-900/30 px-1.5 py-0.5 rounded", children: formatTimestamp(event.timestamp) })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: "relative h-6 bg-slate-900 rounded overflow-hidden mb-2", children: /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsx("div", { className: "relative h-1.5 bg-slate-700/30 rounded-full overflow-hidden mb-3", children: /* @__PURE__ */ jsx(
             "div",
             {
-              className: "h-full transition-all duration-300 flex items-center px-2",
+              className: "absolute top-0 left-0 h-full rounded-full transition-all duration-500 ease-out",
               style: {
                 width: `${getRelativeWidth(event.duration)}%`,
-                backgroundColor: getPerformanceColor(event.duration)
-              },
-              children: /* @__PURE__ */ jsxs("span", { className: "text-xs font-mono text-white font-semibold", children: [
-                event.duration.toFixed(2),
-                "ms"
-              ] })
+                backgroundColor: getPerformanceColor(event.duration),
+                boxShadow: `0 0 8px ${getPerformanceColor(event.duration)}`
+              }
             }
           ) }),
-          event.changes.length > 0 && /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-1", children: [
+          /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between text-xs mb-2", children: [
+            /* @__PURE__ */ jsx("span", { className: "text-slate-500", children: "Duration" }),
+            /* @__PURE__ */ jsxs("span", { className: "font-mono font-medium", style: { color: getPerformanceColor(event.duration) }, children: [
+              event.duration.toFixed(2),
+              "ms"
+            ] })
+          ] }),
+          event.changes.length > 0 && /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-1.5 pt-2 border-t border-slate-700/30", children: [
             event.changes.slice(0, 3).map((change, i) => /* @__PURE__ */ jsx(
               "span",
               {
-                className: "text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30",
+                className: "text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium",
                 children: change.key
               },
               i
             )),
-            event.changes.length > 3 && /* @__PURE__ */ jsxs("span", { className: "text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-400", children: [
+            event.changes.length > 3 && /* @__PURE__ */ jsxs("span", { className: "text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 border border-slate-600/30", children: [
               "+",
-              event.changes.length - 3,
-              " more"
+              event.changes.length - 3
             ] })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: "opacity-0 group-hover:opacity-100 absolute top-full left-0 mt-1 p-2 bg-slate-900 border border-slate-700 rounded shadow-xl text-xs whitespace-nowrap z-10 transition-opacity pointer-events-none", children: "Click to view details" })
+          /* @__PURE__ */ jsx("div", { className: "opacity-0 group-hover:opacity-100 absolute top-2 right-2 transition-opacity duration-200", children: /* @__PURE__ */ jsx("svg", { className: "w-4 h-4 text-slate-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 5l7 7-7 7" }) }) })
         ]
       },
       event.id
-    )) }) })
+    )) })
   ] });
 };
 
@@ -727,125 +346,161 @@ var ComponentStats = ({
     {
       label: "Total Renders",
       value: metrics.renderCount,
-      icon: "\u{1F504}",
-      color: "text-blue-400"
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" }) }),
+      color: "text-indigo-400",
+      bg: "bg-indigo-500/10 border-indigo-500/20"
     },
     {
       label: "Average Time",
       value: `${metrics.averageTime.toFixed(2)}ms`,
-      icon: "\u23F1\uFE0F",
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" }) }),
       color: performanceToColor(metrics.averageTime, {
         good: slowThreshold,
         warning: slowThreshold * 2
-      })
+      }),
+      bg: "bg-slate-800/50 border-slate-700/50"
     },
     {
       label: "Total Time",
       value: `${metrics.totalTime.toFixed(2)}ms`,
-      icon: "\u23F3",
-      color: "text-purple-400"
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" }) }),
+      color: "text-purple-400",
+      bg: "bg-purple-500/10 border-purple-500/20"
     },
     {
       label: "Slowest Render",
       value: `${metrics.maxRenderTime.toFixed(2)}ms`,
-      icon: "\u{1F40C}",
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13 10V3L4 14h7v7l9-11h-7z" }) }),
       color: performanceToColor(metrics.maxRenderTime, {
         good: slowThreshold,
         warning: slowThreshold * 2
-      })
+      }),
+      bg: "bg-slate-800/50 border-slate-700/50"
     },
     {
       label: "Fastest Render",
       value: `${metrics.minRenderTime.toFixed(2)}ms`,
-      icon: "\u26A1",
-      color: "text-green-400"
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13 10V3L4 14h7v7l9-11h-7z" }) }),
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10 border-emerald-500/20"
     },
     {
       label: "Slow Renders",
-      value: `${metrics.slowRenders} (${(metrics.slowRenders / metrics.renderCount * 100).toFixed(1)}%)`,
-      icon: "\u26A0\uFE0F",
-      color: metrics.slowRenders > 0 ? "text-amber-400" : "text-green-400"
+      value: `${metrics.slowRenders} (${metrics.renderCount > 0 ? (metrics.slowRenders / metrics.renderCount * 100).toFixed(1) : 0}%)`,
+      icon: /* @__PURE__ */ jsx2("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" }) }),
+      color: metrics.slowRenders > 0 ? "text-amber-400" : "text-emerald-400",
+      bg: metrics.slowRenders > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
     }
   ];
   const getSeverityIcon = (severity) => {
     switch (severity) {
       case "critical":
-        return "\u{1F534}";
+        return /* @__PURE__ */ jsxs2("span", { className: "flex h-2 w-2 relative", children: [
+          /* @__PURE__ */ jsx2("span", { className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" }),
+          /* @__PURE__ */ jsx2("span", { className: "relative inline-flex rounded-full h-2 w-2 bg-rose-500" })
+        ] });
       case "warning":
-        return "\u{1F7E1}";
+        return /* @__PURE__ */ jsx2("span", { className: "h-2 w-2 rounded-full bg-amber-500" });
       case "info":
       default:
-        return "\u{1F535}";
+        return /* @__PURE__ */ jsx2("span", { className: "h-2 w-2 rounded-full bg-indigo-500" });
     }
   };
-  const getSeverityColor = (severity) => {
+  const getSeverityStyles = (severity) => {
     switch (severity) {
       case "critical":
-        return "border-red-500/50 bg-red-500/10";
+        return "border-rose-500/30 bg-rose-500/5 shadow-[0_0_15px_rgba(244,63,94,0.1)]";
       case "warning":
-        return "border-amber-500/50 bg-amber-500/10";
+        return "border-amber-500/30 bg-amber-500/5 shadow-[0_0_15px_rgba(245,158,11,0.1)]";
       case "info":
       default:
-        return "border-blue-500/50 bg-blue-500/10";
+        return "border-indigo-500/30 bg-indigo-500/5 shadow-[0_0_15px_rgba(99,102,241,0.1)]";
     }
   };
   return /* @__PURE__ */ jsxs2("div", { className: "h-full flex flex-col", children: [
-    /* @__PURE__ */ jsxs2("div", { className: "p-4 border-b border-slate-700", children: [
-      /* @__PURE__ */ jsx2("h3", { className: "text-lg font-semibold text-slate-200", children: metrics.componentName }),
-      /* @__PURE__ */ jsx2("p", { className: "text-sm text-slate-400 mt-1", children: "Component Performance Stats" })
-    ] }),
-    /* @__PURE__ */ jsxs2("div", { className: "flex-1 overflow-y-auto why-render-scrollbar", children: [
-      /* @__PURE__ */ jsx2("div", { className: "p-4", children: /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-2 gap-3", children: stats.map((stat, index) => /* @__PURE__ */ jsxs2(
+    /* @__PURE__ */ jsx2("div", { className: "px-6 py-5 border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-sm", children: /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-3", children: [
+      /* @__PURE__ */ jsx2("div", { className: "p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20", children: /* @__PURE__ */ jsx2("svg", { className: "w-6 h-6 text-indigo-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" }) }) }),
+      /* @__PURE__ */ jsxs2("div", { children: [
+        /* @__PURE__ */ jsx2("h3", { className: "text-xl font-bold text-slate-100 tracking-tight", children: metrics.componentName }),
+        /* @__PURE__ */ jsx2("p", { className: "text-sm text-slate-400 font-medium", children: "Performance Overview" })
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsxs2("div", { className: "flex-1 overflow-y-auto why-render-scrollbar p-6", children: [
+      /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-2 gap-4 mb-8", children: stats.map((stat, index) => /* @__PURE__ */ jsxs2(
         "div",
         {
-          className: "p-3 bg-slate-800 border border-slate-700 rounded-lg",
+          className: `
+                                p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02]
+                                ${stat.bg || "bg-slate-800/50 border-slate-700/50"}
+                                animate-slide-in-up
+                            `,
+          style: { animationDelay: `${index * 50}ms` },
           children: [
-            /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2 mb-1", children: [
-              /* @__PURE__ */ jsx2("span", { className: "text-lg", children: stat.icon }),
-              /* @__PURE__ */ jsx2("span", { className: "text-xs text-slate-400", children: stat.label })
+            /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2 mb-2", children: [
+              /* @__PURE__ */ jsx2("span", { className: `p-1.5 rounded-md bg-slate-900/50 ${stat.color}`, children: stat.icon }),
+              /* @__PURE__ */ jsx2("span", { className: "text-xs font-medium text-slate-400 uppercase tracking-wider", children: stat.label })
             ] }),
             /* @__PURE__ */ jsx2(
               "div",
               {
-                className: "text-lg font-bold font-mono",
-                style: { color: stat.color },
-                children: stat.value
+                className: "text-2xl font-bold font-mono tracking-tight",
+                style: { color: typeof stat.color === "string" && stat.color.startsWith("#") ? stat.color : void 0 },
+                children: /* @__PURE__ */ jsx2("span", { className: !stat.color.startsWith("#") ? stat.color : "", children: stat.value })
               }
             )
           ]
         },
         index
-      )) }) }),
-      suggestions.length > 0 && /* @__PURE__ */ jsxs2("div", { className: "p-4 border-t border-slate-700", children: [
-        /* @__PURE__ */ jsxs2("h4", { className: "text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx2("span", { children: "\u{1F4A1}" }),
+      )) }),
+      suggestions.length > 0 && /* @__PURE__ */ jsxs2("div", { className: "animate-fade-in delay-300", children: [
+        /* @__PURE__ */ jsxs2("h4", { className: "text-sm font-bold text-slate-200 mb-4 flex items-center gap-2 uppercase tracking-wider", children: [
+          /* @__PURE__ */ jsx2("span", { className: "w-1.5 h-1.5 rounded-full bg-amber-400" }),
           "Optimization Suggestions"
         ] }),
-        /* @__PURE__ */ jsx2("div", { className: "space-y-3", children: suggestions.map((suggestion, index) => /* @__PURE__ */ jsxs2(
+        /* @__PURE__ */ jsx2("div", { className: "space-y-4", children: suggestions.map((suggestion, index) => /* @__PURE__ */ jsxs2(
           "div",
           {
-            className: `p-3 rounded-lg border ${getSeverityColor(
-              suggestion.severity
-            )}`,
+            className: `
+                                        group p-4 rounded-xl border transition-all duration-200
+                                        ${getSeverityStyles(suggestion.severity)}
+                                        hover:shadow-lg
+                                    `,
             children: [
-              /* @__PURE__ */ jsxs2("div", { className: "flex items-start gap-2 mb-2", children: [
-                /* @__PURE__ */ jsx2("span", { className: "text-sm", children: getSeverityIcon(suggestion.severity) }),
+              /* @__PURE__ */ jsxs2("div", { className: "flex items-start gap-3 mb-3", children: [
+                /* @__PURE__ */ jsx2("div", { className: "mt-1.5", children: getSeverityIcon(suggestion.severity) }),
                 /* @__PURE__ */ jsxs2("div", { className: "flex-1", children: [
-                  /* @__PURE__ */ jsx2("h5", { className: "text-sm font-semibold text-slate-200", children: suggestion.title }),
-                  /* @__PURE__ */ jsx2("p", { className: "text-xs text-slate-400 mt-1", children: suggestion.description })
+                  /* @__PURE__ */ jsx2("h5", { className: "text-base font-semibold text-slate-200 mb-1", children: suggestion.title }),
+                  /* @__PURE__ */ jsx2("p", { className: "text-sm text-slate-400 leading-relaxed", children: suggestion.description })
                 ] })
               ] }),
-              suggestion.affectedProps && suggestion.affectedProps.length > 0 && /* @__PURE__ */ jsx2("div", { className: "flex flex-wrap gap-1 mb-2", children: suggestion.affectedProps.map((prop, i) => /* @__PURE__ */ jsx2(
+              suggestion.affectedProps && suggestion.affectedProps.length > 0 && /* @__PURE__ */ jsx2("div", { className: "flex flex-wrap gap-2 mb-3 ml-5", children: suggestion.affectedProps.map((prop, i) => /* @__PURE__ */ jsx2(
                 "span",
                 {
-                  className: "text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-mono",
+                  className: "text-xs px-2.5 py-1 rounded-md bg-slate-900/50 text-slate-300 font-mono border border-slate-700/50",
                   children: prop
                 },
                 i
               )) }),
-              suggestion.codeExample && /* @__PURE__ */ jsxs2("details", { className: "mt-2", children: [
-                /* @__PURE__ */ jsx2("summary", { className: "text-xs text-blue-400 cursor-pointer hover:text-blue-300", children: "View code example" }),
-                /* @__PURE__ */ jsx2("pre", { className: "mt-2 p-2 bg-slate-900 rounded text-xs overflow-x-auto", children: /* @__PURE__ */ jsx2("code", { className: "text-slate-300 font-mono", children: suggestion.codeExample }) })
+              suggestion.codeExample && /* @__PURE__ */ jsxs2("details", { className: "ml-5 group/details", children: [
+                /* @__PURE__ */ jsxs2("summary", { className: "text-xs font-medium text-indigo-400 cursor-pointer hover:text-indigo-300 flex items-center gap-1 select-none transition-colors", children: [
+                  /* @__PURE__ */ jsx2("svg", { className: "w-4 h-4 transition-transform group-open/details:rotate-90", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 5l7 7-7 7" }) }),
+                  "View code example"
+                ] }),
+                /* @__PURE__ */ jsxs2("div", { className: "mt-3 relative group/code", children: [
+                  /* @__PURE__ */ jsx2("pre", { className: "p-4 bg-slate-950/80 rounded-lg text-xs overflow-x-auto border border-slate-800/50 shadow-inner", children: /* @__PURE__ */ jsx2("code", { className: "text-slate-300 font-mono leading-relaxed", children: suggestion.codeExample }) }),
+                  /* @__PURE__ */ jsx2("div", { className: "absolute top-2 right-2 opacity-0 group-hover/code:opacity-100 transition-opacity", children: /* @__PURE__ */ jsx2(
+                    "button",
+                    {
+                      className: "p-1.5 rounded bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors",
+                      title: "Copy code",
+                      onClick: (e) => {
+                        e.preventDefault();
+                        navigator.clipboard.writeText(suggestion.codeExample || "");
+                      },
+                      children: /* @__PURE__ */ jsx2("svg", { className: "w-3.5 h-3.5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx2("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" }) })
+                    }
+                  ) })
+                ] })
               ] })
             ]
           },
@@ -877,39 +532,39 @@ var DiffViewer = ({
   const getReasonIcon = (reason) => {
     switch (reason) {
       case "function":
-        return "\u{1F527}";
+        return /* @__PURE__ */ jsx3("svg", { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" }) });
       case "reference":
-        return "\u{1F517}";
+        return /* @__PURE__ */ jsx3("svg", { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" }) });
       case "type":
-        return "\u{1F3F7}\uFE0F";
+        return /* @__PURE__ */ jsx3("svg", { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" }) });
       case "length":
-        return "\u{1F4CF}";
+        return /* @__PURE__ */ jsx3("svg", { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" }) });
       case "value":
       default:
-        return "\u270F\uFE0F";
+        return /* @__PURE__ */ jsx3("svg", { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" }) });
     }
   };
-  const getReasonColor = (reason) => {
+  const getReasonStyles = (reason) => {
     switch (reason) {
       case "function":
-        return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
       case "reference":
-        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
       case "type":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
+        return "bg-rose-500/10 text-rose-400 border-rose-500/20";
       case "length":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+        return "bg-sky-500/10 text-sky-400 border-sky-500/20";
       case "value":
       default:
-        return "bg-green-500/20 text-green-400 border-green-500/30";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
     }
   };
   if (changes.length === 0) {
-    return /* @__PURE__ */ jsx3("div", { className: "flex items-center justify-center h-64 text-slate-400", children: /* @__PURE__ */ jsxs3("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsx3(
+    return /* @__PURE__ */ jsxs3("div", { className: "flex flex-col items-center justify-center h-full text-slate-400 p-8", children: [
+      /* @__PURE__ */ jsx3("div", { className: "w-16 h-16 mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 shadow-inner", children: /* @__PURE__ */ jsx3(
         "svg",
         {
-          className: "w-12 h-12 mx-auto mb-2 opacity-50",
+          className: "w-8 h-8 text-slate-500",
           fill: "none",
           viewBox: "0 0 24 24",
           stroke: "currentColor",
@@ -918,81 +573,76 @@ var DiffViewer = ({
             {
               strokeLinecap: "round",
               strokeLinejoin: "round",
-              strokeWidth: 2,
+              strokeWidth: 1.5,
               d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             }
           )
         }
-      ),
-      /* @__PURE__ */ jsx3("p", { children: "No prop changes detected" })
-    ] }) });
+      ) }),
+      /* @__PURE__ */ jsx3("h3", { className: "text-lg font-medium text-slate-300 mb-1", children: "No prop changes detected" }),
+      /* @__PURE__ */ jsx3("p", { className: "text-sm text-slate-500 text-center max-w-xs", children: "The component re-rendered but props and state appear identical." })
+    ] });
   }
   return /* @__PURE__ */ jsxs3("div", { className: "h-full flex flex-col", children: [
-    /* @__PURE__ */ jsxs3("div", { className: "p-4 border-b border-slate-700", children: [
-      /* @__PURE__ */ jsxs3("h3", { className: "text-lg font-semibold text-slate-200", children: [
-        "Prop Changes - ",
-        componentName
-      ] }),
-      /* @__PURE__ */ jsxs3("p", { className: "text-sm text-slate-400 mt-1", children: [
-        changes.length,
-        " change",
-        changes.length !== 1 ? "s" : "",
-        " detected"
+    /* @__PURE__ */ jsx3("div", { className: "px-6 py-5 border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-sm", children: /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-3", children: [
+      /* @__PURE__ */ jsx3("div", { className: "p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20", children: /* @__PURE__ */ jsx3("svg", { className: "w-6 h-6 text-indigo-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" }) }) }),
+      /* @__PURE__ */ jsxs3("div", { children: [
+        /* @__PURE__ */ jsx3("h3", { className: "text-xl font-bold text-slate-100 tracking-tight", children: "Prop Changes" }),
+        /* @__PURE__ */ jsxs3("p", { className: "text-sm text-slate-400 font-medium flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx3("span", { className: "w-1.5 h-1.5 rounded-full bg-indigo-500" }),
+          componentName,
+          /* @__PURE__ */ jsxs3("span", { className: "px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400 text-[10px] border border-slate-600/30", children: [
+            changes.length,
+            " change",
+            changes.length !== 1 ? "s" : ""
+          ] })
+        ] })
       ] })
-    ] }),
-    /* @__PURE__ */ jsx3("div", { className: "flex-1 overflow-y-auto why-render-scrollbar", children: /* @__PURE__ */ jsx3("div", { className: "p-4 space-y-3", children: changes.map((change, index) => /* @__PURE__ */ jsxs3(
+    ] }) }),
+    /* @__PURE__ */ jsx3("div", { className: "flex-1 overflow-y-auto why-render-scrollbar p-6", children: /* @__PURE__ */ jsx3("div", { className: "space-y-4", children: changes.map((change, index) => /* @__PURE__ */ jsxs3(
       "div",
       {
-        className: "bg-slate-800 border border-slate-700 rounded-lg overflow-hidden",
+        className: "group bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600/50 hover:bg-slate-800/60 transition-all duration-200 animate-slide-in-up",
+        style: { animationDelay: `${index * 50}ms` },
         children: [
           /* @__PURE__ */ jsx3(
             "div",
             {
-              className: "p-3 cursor-pointer hover:bg-slate-750 transition-colors",
+              className: "p-4 cursor-pointer",
               onClick: () => setExpandedIndex(expandedIndex === index ? null : index),
               children: /* @__PURE__ */ jsxs3("div", { className: "flex items-center justify-between", children: [
-                /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
-                  /* @__PURE__ */ jsx3("span", { className: "text-lg", children: getReasonIcon(change.reason) }),
-                  /* @__PURE__ */ jsx3("span", { className: "font-mono text-sm font-semibold text-slate-200", children: change.key }),
-                  /* @__PURE__ */ jsx3(
-                    "span",
-                    {
-                      className: `text-xs px-2 py-0.5 rounded border ${getReasonColor(
-                        change.reason
-                      )}`,
-                      children: change.reason
-                    }
-                  )
+                /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-3", children: [
+                  /* @__PURE__ */ jsx3("div", { className: `p-2 rounded-lg ${getReasonStyles(change.reason)}`, children: getReasonIcon(change.reason) }),
+                  /* @__PURE__ */ jsxs3("div", { children: [
+                    /* @__PURE__ */ jsx3("div", { className: "font-mono text-sm font-bold text-slate-200", children: change.key }),
+                    /* @__PURE__ */ jsxs3("div", { className: "text-xs text-slate-500 font-medium uppercase tracking-wider mt-0.5", children: [
+                      change.reason,
+                      " change"
+                    ] })
+                  ] })
                 ] }),
-                /* @__PURE__ */ jsx3(
-                  "svg",
-                  {
-                    className: `w-4 h-4 text-slate-400 transition-transform ${expandedIndex === index ? "rotate-180" : ""}`,
-                    fill: "none",
-                    viewBox: "0 0 24 24",
-                    stroke: "currentColor",
-                    children: /* @__PURE__ */ jsx3(
-                      "path",
-                      {
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        strokeWidth: 2,
-                        d: "M19 9l-7 7-7-7"
-                      }
-                    )
-                  }
-                )
+                /* @__PURE__ */ jsx3("div", { className: `
+                                        w-8 h-8 rounded-full flex items-center justify-center bg-slate-800/50 text-slate-400 
+                                        transition-all duration-200 group-hover:bg-slate-700/50 group-hover:text-slate-200
+                                        ${expandedIndex === index ? "rotate-180 bg-slate-700/50 text-slate-200" : ""}
+                                    `, children: /* @__PURE__ */ jsx3("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx3("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M19 9l-7 7-7-7" }) }) })
               ] })
             }
           ),
-          expandedIndex === index && /* @__PURE__ */ jsx3("div", { className: "border-t border-slate-700", children: /* @__PURE__ */ jsxs3("div", { className: "grid grid-cols-2 divide-x divide-slate-700", children: [
-            /* @__PURE__ */ jsxs3("div", { className: "p-3", children: [
-              /* @__PURE__ */ jsx3("div", { className: "text-xs font-semibold text-red-400 mb-2", children: "Previous Value" }),
-              /* @__PURE__ */ jsx3("pre", { className: "text-xs bg-slate-900 p-2 rounded overflow-x-auto", children: /* @__PURE__ */ jsx3("code", { className: "text-slate-300 font-mono", children: formatValue(change.oldValue) }) })
+          expandedIndex === index && /* @__PURE__ */ jsx3("div", { className: "border-t border-slate-700/50 bg-slate-900/30 animate-fade-in", children: /* @__PURE__ */ jsxs3("div", { className: "grid grid-cols-2 divide-x divide-slate-700/50", children: [
+            /* @__PURE__ */ jsxs3("div", { className: "p-4", children: [
+              /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-3", children: [
+                /* @__PURE__ */ jsx3("span", { className: "w-2 h-2 rounded-full bg-rose-500" }),
+                /* @__PURE__ */ jsx3("span", { className: "text-xs font-bold text-rose-400 uppercase tracking-wider", children: "Previous" })
+              ] }),
+              /* @__PURE__ */ jsx3("pre", { className: "text-xs bg-slate-950/50 p-3 rounded-lg overflow-x-auto border border-rose-500/10 shadow-inner", children: /* @__PURE__ */ jsx3("code", { className: "text-rose-200/80 font-mono leading-relaxed", children: formatValue(change.oldValue) }) })
             ] }),
-            /* @__PURE__ */ jsxs3("div", { className: "p-3", children: [
-              /* @__PURE__ */ jsx3("div", { className: "text-xs font-semibold text-green-400 mb-2", children: "New Value" }),
-              /* @__PURE__ */ jsx3("pre", { className: "text-xs bg-slate-900 p-2 rounded overflow-x-auto", children: /* @__PURE__ */ jsx3("code", { className: "text-slate-300 font-mono", children: formatValue(change.newValue) }) })
+            /* @__PURE__ */ jsxs3("div", { className: "p-4 bg-emerald-500/5", children: [
+              /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-3", children: [
+                /* @__PURE__ */ jsx3("span", { className: "w-2 h-2 rounded-full bg-emerald-500" }),
+                /* @__PURE__ */ jsx3("span", { className: "text-xs font-bold text-emerald-400 uppercase tracking-wider", children: "Current" })
+              ] }),
+              /* @__PURE__ */ jsx3("pre", { className: "text-xs bg-slate-950/50 p-3 rounded-lg overflow-x-auto border border-emerald-500/10 shadow-inner", children: /* @__PURE__ */ jsx3("code", { className: "text-emerald-200/80 font-mono leading-relaxed", children: formatValue(change.newValue) }) })
             ] })
           ] }) })
         ]
@@ -1290,7 +940,7 @@ var FlameGraph = ({
   const { renders, hierarchy: hierarchy2 } = useDevToolsStore();
   const [selectedNode, setSelectedNode] = useState2(null);
   const rootData = useMemo3(() => {
-    if (!hierarchy2 || hierarchy2.length === 0) return null;
+    if ((!hierarchy2 || hierarchy2.length === 0) && renders.length === 0) return null;
     const buildTree = (nodes) => {
       return nodes.map((node) => {
         const componentRenders = renders.filter((r) => r.componentId === node.componentId);
@@ -1301,11 +951,32 @@ var FlameGraph = ({
           value: duration,
           componentId: node.componentId,
           actualDuration: duration,
-          children: node.children ? buildTree(node.children) : void 0
+          children: node.children && node.children.length > 0 ? buildTree(node.children) : void 0
         };
       });
     };
-    const children = buildTree(hierarchy2);
+    let children;
+    if (hierarchy2 && hierarchy2.length > 0) {
+      children = buildTree(hierarchy2);
+    } else {
+      const uniqueComponents = /* @__PURE__ */ new Map();
+      renders.forEach((r) => {
+        const existing = uniqueComponents.get(r.componentId);
+        if (!existing || r.timestamp > existing.duration) {
+          uniqueComponents.set(r.componentId, {
+            name: r.componentName,
+            id: r.componentId,
+            duration: r.duration
+          });
+        }
+      });
+      children = Array.from(uniqueComponents.values()).map((comp) => ({
+        name: comp.name,
+        value: comp.duration,
+        componentId: comp.id,
+        actualDuration: comp.duration
+      }));
+    }
     return {
       name: "Root",
       value: 0,
@@ -1318,67 +989,125 @@ var FlameGraph = ({
   const root = useMemo3(() => {
     if (!rootData) return null;
     const hierarchyNode = hierarchy(rootData).sum((d) => d.value).sort((a, b) => (b.value || 0) - (a.value || 0));
-    const partition = partition_default().size([width, height]).padding(1);
+    const partition = partition_default().size([width, height]).padding(2);
     return partition(hierarchyNode);
   }, [rootData, width, height]);
   if (!root) {
-    return /* @__PURE__ */ jsx4("div", { className: "flex items-center justify-center h-full text-slate-400", children: "No render data available yet" });
+    return /* @__PURE__ */ jsxs4("div", { className: "flex flex-col items-center justify-center h-full text-slate-400 p-8", children: [
+      /* @__PURE__ */ jsx4("div", { className: "w-16 h-16 mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 shadow-inner", children: /* @__PURE__ */ jsxs4("svg", { className: "w-8 h-8 text-slate-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: [
+        /* @__PURE__ */ jsx4("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 1.5, d: "M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" }),
+        /* @__PURE__ */ jsx4("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 1.5, d: "M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" })
+      ] }) }),
+      /* @__PURE__ */ jsx4("h3", { className: "text-lg font-medium text-slate-300 mb-1", children: "No render data available" }),
+      /* @__PURE__ */ jsx4("p", { className: "text-sm text-slate-500 text-center max-w-xs", children: "Interact with your application to generate flame graph data." })
+    ] });
   }
   return /* @__PURE__ */ jsxs4("div", { className: "flex flex-col h-full", children: [
-    /* @__PURE__ */ jsx4("div", { className: "flex-1 overflow-hidden relative bg-slate-900 rounded-lg border border-slate-700", children: /* @__PURE__ */ jsx4("svg", { width: "100%", height: "100%", viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: "none", children: root.descendants().map((node, i) => {
-      if (node.depth === 0) return null;
-      const isSelected = selectedNode === node;
-      const color = performanceToColor(node.data.actualDuration, { good: 4, warning: 16 });
-      return /* @__PURE__ */ jsxs4(
-        "g",
-        {
-          transform: `translate(${node.x0},${node.y0})`,
-          onClick: () => setSelectedNode(node),
-          className: "cursor-pointer transition-opacity hover:opacity-80",
-          children: [
-            /* @__PURE__ */ jsx4(
-              "rect",
-              {
-                width: Math.max(0, node.x1 - node.x0),
-                height: Math.max(0, node.y1 - node.y0),
-                fill: color,
-                fillOpacity: isSelected ? 1 : 0.8,
-                stroke: isSelected ? "#fff" : "none",
-                strokeWidth: 2,
-                rx: 2
-              }
-            ),
-            node.x1 - node.x0 > 30 && node.y1 - node.y0 > 14 && /* @__PURE__ */ jsx4(
-              "text",
-              {
-                x: 4,
-                y: 14,
-                fontSize: 10,
-                fill: "#fff",
-                className: "pointer-events-none font-mono select-none",
-                style: { textShadow: "0 1px 2px rgba(0,0,0,0.5)" },
-                children: node.data.name
-              }
-            )
-          ]
-        },
-        `${node.data.componentId}-${i}`
-      );
-    }) }) }),
-    /* @__PURE__ */ jsxs4("div", { className: "h-16 border-t border-slate-700 p-2 bg-slate-800 flex items-center justify-between", children: [
-      selectedNode ? /* @__PURE__ */ jsxs4("div", { children: [
-        /* @__PURE__ */ jsx4("div", { className: "font-bold text-slate-200", children: selectedNode.data.name }),
-        /* @__PURE__ */ jsxs4("div", { className: "text-xs text-slate-400 font-mono", children: [
-          "Duration: ",
-          selectedNode.data.actualDuration.toFixed(2),
-          "ms",
-          /* @__PURE__ */ jsx4("span", { className: "mx-2", children: "\u2022" }),
+    /* @__PURE__ */ jsxs4("div", { className: "px-6 py-4 border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-sm flex justify-between items-center", children: [
+      /* @__PURE__ */ jsxs4("h3", { className: "text-sm font-semibold text-slate-200 flex items-center gap-2", children: [
+        /* @__PURE__ */ jsx4("span", { className: "w-1.5 h-1.5 rounded-full bg-orange-500" }),
+        "Flame Graph"
+      ] }),
+      /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2 text-xs text-slate-400", children: [
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx4("span", { className: "w-2 h-2 rounded-sm bg-emerald-500/50" }),
+          " Fast"
+        ] }),
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx4("span", { className: "w-2 h-2 rounded-sm bg-amber-500/50" }),
+          " Warning"
+        ] }),
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsx4("span", { className: "w-2 h-2 rounded-sm bg-rose-500/50" }),
+          " Slow"
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsx4("div", { className: "flex-1 overflow-hidden relative bg-slate-900/50 m-4 rounded-xl border border-slate-700/50 shadow-inner", children: /* @__PURE__ */ jsxs4("svg", { width: "100%", height: "100%", viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: "none", children: [
+      /* @__PURE__ */ jsx4("defs", { children: /* @__PURE__ */ jsxs4("filter", { id: "glow", x: "-20%", y: "-20%", width: "140%", height: "140%", children: [
+        /* @__PURE__ */ jsx4("feGaussianBlur", { stdDeviation: "2", result: "blur" }),
+        /* @__PURE__ */ jsx4("feComposite", { in: "SourceGraphic", in2: "blur", operator: "over" })
+      ] }) }),
+      root.descendants().map((node, i) => {
+        if (node.depth === 0) return null;
+        const isSelected = selectedNode === node;
+        const color = performanceToColor(node.data.actualDuration, { good: 4, warning: 16 });
+        return /* @__PURE__ */ jsxs4(
+          "g",
+          {
+            transform: `translate(${node.x0},${node.y0})`,
+            onClick: () => setSelectedNode(node),
+            className: "cursor-pointer transition-all duration-200",
+            style: { opacity: selectedNode && !isSelected ? 0.4 : 1 },
+            children: [
+              /* @__PURE__ */ jsx4(
+                "rect",
+                {
+                  width: Math.max(0, node.x1 - node.x0),
+                  height: Math.max(0, node.y1 - node.y0),
+                  fill: color,
+                  fillOpacity: isSelected ? 1 : 0.7,
+                  stroke: isSelected ? "#fff" : "rgba(0,0,0,0.2)",
+                  strokeWidth: isSelected ? 2 : 1,
+                  rx: 4,
+                  filter: isSelected ? "url(#glow)" : "",
+                  className: "transition-all duration-300 hover:fill-opacity-90"
+                }
+              ),
+              node.x1 - node.x0 > 40 && node.y1 - node.y0 > 16 && /* @__PURE__ */ jsx4(
+                "text",
+                {
+                  x: 6,
+                  y: 16,
+                  fontSize: 11,
+                  fill: "#fff",
+                  className: "pointer-events-none font-medium select-none text-shadow",
+                  style: {
+                    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                    fontWeight: isSelected ? 700 : 500
+                  },
+                  children: node.data.name
+                }
+              )
+            ]
+          },
+          `${node.data.componentId}-${i}`
+        );
+      })
+    ] }) }),
+    /* @__PURE__ */ jsx4("div", { className: "h-20 border-t border-slate-700/50 px-6 py-3 bg-slate-800/50 backdrop-blur-md flex items-center justify-between", children: selectedNode ? /* @__PURE__ */ jsxs4("div", { className: "animate-slide-in-up", children: [
+      /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2 mb-1", children: [
+        /* @__PURE__ */ jsx4("span", { className: "font-bold text-slate-100 text-lg tracking-tight", children: selectedNode.data.name }),
+        /* @__PURE__ */ jsxs4("span", { className: "px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300 border border-slate-600", children: [
           "Depth: ",
           selectedNode.depth
         ] })
-      ] }) : /* @__PURE__ */ jsx4("div", { className: "text-slate-500 text-sm italic", children: "Click a bar to view details" }),
-      /* @__PURE__ */ jsx4("div", { className: "text-xs text-slate-500", children: "Flame Graph" })
-    ] })
+      ] }),
+      /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-4 text-xs text-slate-400 font-mono", children: [
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1.5", children: [
+          /* @__PURE__ */ jsx4("span", { className: "w-1.5 h-1.5 rounded-full bg-indigo-400" }),
+          "Duration: ",
+          /* @__PURE__ */ jsxs4("span", { className: "text-slate-200 font-bold", children: [
+            selectedNode.data.actualDuration.toFixed(2),
+            "ms"
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1.5", children: [
+          /* @__PURE__ */ jsx4("span", { className: "w-1.5 h-1.5 rounded-full bg-purple-400" }),
+          "Base: ",
+          /* @__PURE__ */ jsxs4("span", { className: "text-slate-200", children: [
+            selectedNode.data.baseDuration ? selectedNode.data.baseDuration.toFixed(2) : "-",
+            "ms"
+          ] })
+        ] })
+      ] })
+    ] }) : /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-3 text-slate-500", children: [
+      /* @__PURE__ */ jsx4("div", { className: "p-2 rounded-lg bg-slate-800 border border-slate-700", children: /* @__PURE__ */ jsx4("svg", { className: "w-5 h-5", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx4("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" }) }) }),
+      /* @__PURE__ */ jsxs4("div", { children: [
+        /* @__PURE__ */ jsx4("p", { className: "text-sm font-medium text-slate-400", children: "No component selected" }),
+        /* @__PURE__ */ jsx4("p", { className: "text-xs", children: "Click on any bar in the flame graph to view detailed metrics" })
+      ] })
+    ] }) })
   ] });
 };
 
@@ -1391,7 +1120,8 @@ var TreeNode = ({
   onSelect,
   selectedId,
   metricsMap,
-  slowThreshold
+  slowThreshold,
+  isLastChild = false
 }) => {
   const [isExpanded, setIsExpanded] = useState3(true);
   const hasChildren = node.children && node.children.length > 0;
@@ -1400,42 +1130,71 @@ var TreeNode = ({
   const renderCount = metric?.renderCount ?? 0;
   const lastRenderTime = metric?.lastRenderTime ?? 0;
   const badgeColor = metric ? performanceToColor(lastRenderTime, { good: slowThreshold / 2, warning: slowThreshold }) : void 0;
-  return /* @__PURE__ */ jsxs5("div", { className: "select-none", children: [
+  return /* @__PURE__ */ jsxs5("div", { className: "select-none relative", children: [
+    depth > 0 && /* @__PURE__ */ jsx5(
+      "div",
+      {
+        className: `absolute left-0 top-0 border-l border-slate-700/50 ${isLastChild ? "h-1/2" : "h-full"}`,
+        style: { left: `${(depth - 1) * 20 + 10}px` }
+      }
+    ),
     /* @__PURE__ */ jsxs5(
       "div",
       {
         className: `
-          flex items-center py-1 px-2 hover:bg-slate-800 cursor-pointer
-          ${isSelected ? "bg-blue-900/30 border-l-2 border-blue-500" : "border-l-2 border-transparent"}
+          flex items-center py-1.5 px-2 my-0.5 rounded-lg cursor-pointer transition-all duration-200
+          ${isSelected ? "bg-indigo-500/20 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.1)]" : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"}
         `,
-        style: { paddingLeft: `${depth * 16 + 8}px` },
+        style: { paddingLeft: `${depth * 20 + 8}px` },
         onClick: () => onSelect(node.componentId),
         children: [
           /* @__PURE__ */ jsx5(
             "button",
             {
-              className: `w-4 h-4 mr-1 flex items-center justify-center text-slate-400 hover:text-white ${!hasChildren ? "invisible" : ""}`,
+              className: `
+                        w-5 h-5 mr-1 flex items-center justify-center rounded hover:bg-white/10 transition-colors
+                        ${!hasChildren ? "invisible" : ""}
+                    `,
               onClick: (e) => {
                 e.stopPropagation();
                 setIsExpanded(!isExpanded);
               },
-              children: isExpanded ? "\u25BC" : "\u25B6"
+              children: /* @__PURE__ */ jsx5(
+                "svg",
+                {
+                  className: `w-3 h-3 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`,
+                  fill: "none",
+                  viewBox: "0 0 24 24",
+                  stroke: "currentColor",
+                  children: /* @__PURE__ */ jsx5("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M9 5l7 7-7 7" })
+                }
+              )
             }
           ),
-          /* @__PURE__ */ jsx5("span", { className: "text-sm font-mono text-slate-300 truncate mr-2", children: node.componentName }),
-          renderCount > 0 && /* @__PURE__ */ jsx5(
-            "span",
-            {
-              className: "ml-auto text-xs px-1.5 py-0.5 rounded-full text-slate-900 font-medium min-w-[20px] text-center",
-              style: { backgroundColor: badgeColor || "#94a3b8" },
-              title: `Last render: ${lastRenderTime.toFixed(2)}ms | Total renders: ${renderCount}`,
-              children: renderCount
-            }
-          )
+          /* @__PURE__ */ jsx5("span", { className: `text-sm font-medium truncate mr-2 ${isSelected ? "text-indigo-300" : "text-slate-300"}`, children: node.componentName }),
+          renderCount > 0 && /* @__PURE__ */ jsxs5("div", { className: "ml-auto flex items-center gap-2", children: [
+            lastRenderTime > slowThreshold && /* @__PURE__ */ jsxs5("span", { className: "flex h-2 w-2 relative", title: "Slow render detected", children: [
+              /* @__PURE__ */ jsx5("span", { className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" }),
+              /* @__PURE__ */ jsx5("span", { className: "relative inline-flex rounded-full h-2 w-2 bg-amber-500" })
+            ] }),
+            /* @__PURE__ */ jsx5(
+              "span",
+              {
+                className: "text-[10px] px-1.5 py-0.5 rounded-md font-mono font-medium min-w-[24px] text-center border shadow-sm",
+                style: {
+                  backgroundColor: badgeColor ? `${badgeColor}20` : "#94a3b820",
+                  color: badgeColor || "#94a3b8",
+                  borderColor: badgeColor ? `${badgeColor}40` : "#94a3b840"
+                },
+                title: `Last render: ${lastRenderTime.toFixed(2)}ms | Total renders: ${renderCount}`,
+                children: renderCount
+              }
+            )
+          ] })
         ]
       }
     ),
-    isExpanded && hasChildren && /* @__PURE__ */ jsx5("div", { children: node.children.map((child) => /* @__PURE__ */ jsx5(
+    isExpanded && hasChildren && /* @__PURE__ */ jsx5("div", { className: "animate-slide-in-up", style: { animationDuration: "0.2s" }, children: node.children.map((child, index) => /* @__PURE__ */ jsx5(
       TreeNode,
       {
         node: child,
@@ -1443,36 +1202,68 @@ var TreeNode = ({
         onSelect,
         selectedId,
         metricsMap,
-        slowThreshold
+        slowThreshold,
+        isLastChild: index === node.children.length - 1
       },
       child.componentId
     )) })
   ] });
 };
 var ComponentTree = () => {
-  const { hierarchy: hierarchy2, selectedComponentId, setSelectedComponent, metrics, slowThreshold } = useDevToolsStore();
+  const { hierarchy: hierarchy2, selectedComponentId, setSelectedComponent, metrics, slowThreshold, renders } = useDevToolsStore();
   const metricsMap = useMemo4(() => {
     return new Map(metrics.map((m) => [m.componentId, m]));
   }, [metrics]);
-  if (!hierarchy2 || hierarchy2.length === 0) {
-    return /* @__PURE__ */ jsxs5("div", { className: "flex items-center justify-center h-full text-slate-400 p-4", children: [
-      "No component hierarchy detected.",
-      /* @__PURE__ */ jsx5("br", {}),
-      "Make sure to use 'withWhyRender' or 'useWhyRender' in your components."
+  const displayHierarchy = useMemo4(() => {
+    if (hierarchy2 && hierarchy2.length > 0) {
+      return hierarchy2;
+    }
+    if (renders.length === 0) return [];
+    const uniqueComponents = /* @__PURE__ */ new Map();
+    renders.forEach((r) => {
+      if (!uniqueComponents.has(r.componentId)) {
+        uniqueComponents.set(r.componentId, {
+          componentName: r.componentName,
+          componentId: r.componentId,
+          children: [],
+          depth: 0
+        });
+      }
+    });
+    return Array.from(uniqueComponents.values());
+  }, [hierarchy2, renders]);
+  if (displayHierarchy.length === 0) {
+    return /* @__PURE__ */ jsxs5("div", { className: "flex flex-col items-center justify-center h-full text-slate-400 p-8", children: [
+      /* @__PURE__ */ jsx5("div", { className: "w-16 h-16 mb-4 rounded-full bg-slate-800/50 flex items-center justify-center border border-slate-700/50 shadow-inner", children: /* @__PURE__ */ jsx5("svg", { className: "w-8 h-8 text-slate-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", children: /* @__PURE__ */ jsx5("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 1.5, d: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" }) }) }),
+      /* @__PURE__ */ jsx5("h3", { className: "text-lg font-medium text-slate-300 mb-1", children: "No component data" }),
+      /* @__PURE__ */ jsx5("p", { className: "text-sm text-slate-500 text-center max-w-xs", children: "Interact with your application to populate the component tree." })
     ] });
   }
-  return /* @__PURE__ */ jsx5("div", { className: "h-full overflow-y-auto why-render-scrollbar bg-slate-900/50", children: /* @__PURE__ */ jsx5("div", { className: "p-2", children: hierarchy2.map((node) => /* @__PURE__ */ jsx5(
-    TreeNode,
-    {
-      node,
-      depth: 0,
-      onSelect: setSelectedComponent,
-      selectedId: selectedComponentId,
-      metricsMap,
-      slowThreshold
-    },
-    node.componentId
-  )) }) });
+  return /* @__PURE__ */ jsxs5("div", { className: "h-full flex flex-col", children: [
+    /* @__PURE__ */ jsxs5("div", { className: "px-6 py-4 border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-sm flex justify-between items-center", children: [
+      /* @__PURE__ */ jsxs5("h3", { className: "text-sm font-semibold text-slate-200 flex items-center gap-2", children: [
+        /* @__PURE__ */ jsx5("span", { className: "w-1.5 h-1.5 rounded-full bg-indigo-500" }),
+        "Component Tree"
+      ] }),
+      /* @__PURE__ */ jsxs5("span", { className: "text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 border border-slate-600/30", children: [
+        displayHierarchy.length,
+        " root items"
+      ] })
+    ] }),
+    /* @__PURE__ */ jsx5("div", { className: "flex-1 overflow-y-auto why-render-scrollbar bg-slate-900/20 p-4", children: displayHierarchy.map((node, index) => /* @__PURE__ */ jsx5(
+      TreeNode,
+      {
+        node,
+        depth: 0,
+        onSelect: setSelectedComponent,
+        selectedId: selectedComponentId,
+        metricsMap,
+        slowThreshold,
+        isLastChild: index === displayHierarchy.length - 1
+      },
+      node.componentId
+    )) })
+  ] });
 };
 
 // src/ui/WhyRenderDevTools.tsx
@@ -1490,6 +1281,7 @@ var WhyRenderDevTools = ({
     metrics,
     toggleOpen,
     setActivePanel,
+    setSelectedComponent,
     updateRenders,
     updateHierarchy,
     updateMetrics
@@ -1500,23 +1292,51 @@ var WhyRenderDevTools = ({
   useEffect(() => {
     const syncData = () => {
       const exportedData = globalRenderTracker.export();
+      console.log("[DevTools] Syncing data:", {
+        historyCount: exportedData.history.length,
+        hierarchyCount: exportedData.hierarchy.length,
+        metricsCount: exportedData.metrics.length
+      });
       updateRenders(exportedData.history);
       updateHierarchy(exportedData.hierarchy);
       updateMetrics(exportedData.metrics);
     };
     syncData();
-    const unsubscribe = globalEventEmitter.on("render:end", syncData);
+    console.log("[DevTools] Subscribing to render:end events");
+    const unsubscribe = globalEventEmitter.on("render:end", (payload) => {
+      console.log("[DevTools] Received render:end event:", payload);
+      syncData();
+    });
     return () => {
+      console.log("[DevTools] Unsubscribing from render:end events");
       unsubscribe();
     };
   }, [updateRenders, updateHierarchy, updateMetrics]);
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const parts = toggleShortcut.split("+");
-      const meta = parts.includes("Meta") ? e.metaKey : false;
-      const shift = parts.includes("Shift") ? e.shiftKey : false;
-      const key = parts[parts.length - 1].toLowerCase();
-      if (meta && shift && e.key.toLowerCase() === key) {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) {
+        return;
+      }
+      const parts = toggleShortcut.toLowerCase().split("+");
+      const key = parts[parts.length - 1].trim();
+      const wantsMeta = parts.some((p) => ["meta", "cmd", "command"].includes(p));
+      const wantsCtrl = parts.some((p) => ["ctrl", "control"].includes(p));
+      const wantsShift = parts.includes("shift");
+      const wantsAlt = parts.includes("alt");
+      if (e.key.toLowerCase() !== key) return;
+      const shiftOk = e.shiftKey === wantsShift;
+      const altOk = e.altKey === wantsAlt;
+      let metaCtrlOk = false;
+      if (wantsMeta && !wantsCtrl) {
+        metaCtrlOk = e.metaKey || e.ctrlKey;
+      } else if (wantsCtrl && !wantsMeta) {
+        metaCtrlOk = e.ctrlKey && !e.metaKey;
+      } else if (wantsMeta && wantsCtrl) {
+        metaCtrlOk = e.metaKey && e.ctrlKey;
+      } else {
+        metaCtrlOk = !e.metaKey && !e.ctrlKey;
+      }
+      if (shiftOk && altOk && metaCtrlOk) {
         e.preventDefault();
         toggleOpen();
       }
@@ -1544,7 +1364,8 @@ var WhyRenderDevTools = ({
             events: renders,
             slowThreshold,
             maxEvents: 100,
-            onSelectEvent: () => {
+            onSelectEvent: (event) => {
+              setSelectedComponent(event.componentId);
               setActivePanel("stats");
             },
             selectedEventId: latestRender?.id
@@ -1603,52 +1424,38 @@ var WhyRenderDevTools = ({
         onClick: toggleOpen,
         className: `
             fixed ${positionClasses[position]} z-[9999]
-            px-4 py-2 bg-blue-500 hover:bg-blue-600
-            text-white rounded-lg shadow-lg
-            transition-all duration-300 hover:scale-105
-            flex items-center gap-2 font-medium text-sm
-            animate-pulse-glow
+            px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500
+            text-white rounded-full shadow-lg shadow-indigo-500/30
+            transition-all duration-300 hover:scale-105 active:scale-95
+            flex items-center gap-2.5 font-medium text-sm
+            animate-pulse-glow backdrop-blur-sm border border-indigo-400/20
           `,
         title: `Toggle DevTools (${toggleShortcut})`,
         children: [
-          /* @__PURE__ */ jsx6(
-            "svg",
-            {
-              className: "w-4 h-4",
-              fill: "none",
-              viewBox: "0 0 24 24",
-              stroke: "currentColor",
-              children: /* @__PURE__ */ jsx6(
-                "path",
-                {
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
-                  strokeWidth: 2,
-                  d: "M13 10V3L4 14h7v7l9-11h-7z"
-                }
-              )
-            }
-          ),
-          "Why Render"
+          /* @__PURE__ */ jsxs6("div", { className: "relative flex h-3 w-3", children: [
+            /* @__PURE__ */ jsx6("span", { className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" }),
+            /* @__PURE__ */ jsx6("span", { className: "relative inline-flex rounded-full h-3 w-3 bg-indigo-400" })
+          ] }),
+          /* @__PURE__ */ jsx6("span", { className: "font-semibold tracking-wide", children: "Why Render" })
         ]
       }
     ),
     isOpen && /* @__PURE__ */ jsx6(
       "div",
       {
-        className: "fixed inset-0 z-[9998] flex items-end justify-end p-4 pointer-events-none",
-        style: { fontFamily: "system-ui, sans-serif" },
+        className: "fixed inset-0 z-[9998] flex items-end justify-end p-6 pointer-events-none",
+        style: { fontFamily: "'Inter', system-ui, sans-serif" },
         children: /* @__PURE__ */ jsxs6(
           "div",
           {
-            className: "\n              w-full max-w-4xl h-[600px]\n              why-render-panel\n              flex flex-col\n              pointer-events-auto\n              animate-slide-in-up\n            ",
+            className: "\n              w-full max-w-5xl h-[650px]\n              why-render-panel\n              flex flex-col\n              pointer-events-auto\n              animate-slide-in-up\n              overflow-hidden\n            ",
             children: [
-              /* @__PURE__ */ jsxs6("div", { className: "flex items-center justify-between p-4 border-b border-slate-700", children: [
+              /* @__PURE__ */ jsxs6("div", { className: "flex items-center justify-between px-5 py-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-slate-800/50 backdrop-blur-md", children: [
                 /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-3", children: [
-                  /* @__PURE__ */ jsx6(
+                  /* @__PURE__ */ jsx6("div", { className: "p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20", children: /* @__PURE__ */ jsx6(
                     "svg",
                     {
-                      className: "w-6 h-6 text-blue-400",
+                      className: "w-5 h-5 text-indigo-400",
                       fill: "none",
                       viewBox: "0 0 24 24",
                       stroke: "currentColor",
@@ -1662,54 +1469,89 @@ var WhyRenderDevTools = ({
                         }
                       )
                     }
-                  ),
-                  /* @__PURE__ */ jsx6("h2", { className: "text-xl font-bold text-slate-100", children: "Why Render DevTools" }),
-                  /* @__PURE__ */ jsx6("span", { className: "text-xs text-slate-500", children: "v0.1.0" })
+                  ) }),
+                  /* @__PURE__ */ jsxs6("div", { children: [
+                    /* @__PURE__ */ jsxs6("h2", { className: "text-lg font-bold text-white tracking-tight flex items-center gap-2", children: [
+                      "Why Render",
+                      /* @__PURE__ */ jsx6("span", { className: "px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider", children: "DevTools" })
+                    ] }),
+                    /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2 text-[11px] text-slate-400 font-medium", children: [
+                      /* @__PURE__ */ jsx6("span", { children: "v0.1.0" }),
+                      /* @__PURE__ */ jsx6("span", { className: "w-1 h-1 rounded-full bg-slate-600" }),
+                      /* @__PURE__ */ jsxs6("span", { children: [
+                        renders.length,
+                        " events captured"
+                      ] })
+                    ] })
+                  ] })
                 ] }),
-                /* @__PURE__ */ jsx6(
+                /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2", children: [
+                  /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-1 px-2 py-1 bg-slate-800/50 rounded-md border border-slate-700/50 mr-2", children: [
+                    /* @__PURE__ */ jsx6("span", { className: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse" }),
+                    /* @__PURE__ */ jsx6("span", { className: "text-xs text-slate-400 font-medium", children: "Live" })
+                  ] }),
+                  /* @__PURE__ */ jsx6(
+                    "button",
+                    {
+                      onClick: toggleOpen,
+                      className: "p-2 hover:bg-white/5 text-slate-400 hover:text-white rounded-lg transition-all duration-200 active:scale-95",
+                      title: "Close (Esc)",
+                      children: /* @__PURE__ */ jsx6(
+                        "svg",
+                        {
+                          className: "w-5 h-5",
+                          fill: "none",
+                          viewBox: "0 0 24 24",
+                          stroke: "currentColor",
+                          children: /* @__PURE__ */ jsx6(
+                            "path",
+                            {
+                              strokeLinecap: "round",
+                              strokeLinejoin: "round",
+                              strokeWidth: 2,
+                              d: "M6 18L18 6M6 6l12 12"
+                            }
+                          )
+                        }
+                      )
+                    }
+                  )
+                ] })
+              ] }),
+              /* @__PURE__ */ jsx6("div", { className: "flex px-2 border-b border-slate-700/50 bg-slate-900/30 backdrop-blur-sm", children: tabs.map((tab) => {
+                const isActive = activePanel === tab.id || activePanel === null && tab.id === "timeline";
+                return /* @__PURE__ */ jsxs6(
                   "button",
                   {
-                    onClick: toggleOpen,
-                    className: "p-2 hover:bg-slate-800 rounded-lg transition-colors",
-                    title: "Close (Esc)",
-                    children: /* @__PURE__ */ jsx6(
-                      "svg",
-                      {
-                        className: "w-5 h-5 text-slate-400",
-                        fill: "none",
-                        viewBox: "0 0 24 24",
-                        stroke: "currentColor",
-                        children: /* @__PURE__ */ jsx6(
-                          "path",
-                          {
-                            strokeLinecap: "round",
-                            strokeLinejoin: "round",
-                            strokeWidth: 2,
-                            d: "M6 18L18 6M6 6l12 12"
-                          }
-                        )
-                      }
-                    )
+                    onClick: () => setActivePanel(tab.id),
+                    className: `
+                      relative px-4 py-3 font-medium text-sm transition-all duration-200
+                      flex items-center gap-2 group outline-none
+                      ${isActive ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"}
+                    `,
+                    children: [
+                      /* @__PURE__ */ jsx6("span", { className: `transition-transform duration-200 group-hover:scale-110 ${isActive ? "scale-110" : ""}`, children: tab.icon }),
+                      tab.label,
+                      isActive && /* @__PURE__ */ jsx6("span", { className: "absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] animate-fade-in" }),
+                      /* @__PURE__ */ jsx6("span", { className: `absolute inset-0 bg-white/5 rounded-t-lg transition-opacity duration-200 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}` })
+                    ]
+                  },
+                  tab.id
+                );
+              }) }),
+              /* @__PURE__ */ jsxs6("div", { className: "flex-1 overflow-hidden bg-slate-900/20 relative", children: [
+                /* @__PURE__ */ jsx6(
+                  "div",
+                  {
+                    className: "absolute inset-0 opacity-[0.03] pointer-events-none",
+                    style: {
+                      backgroundImage: "radial-gradient(#6366f1 1px, transparent 1px)",
+                      backgroundSize: "20px 20px"
+                    }
                   }
-                )
-              ] }),
-              /* @__PURE__ */ jsx6("div", { className: "flex border-b border-slate-700", children: tabs.map((tab) => /* @__PURE__ */ jsxs6(
-                "button",
-                {
-                  onClick: () => setActivePanel(tab.id),
-                  className: `
-                    px-4 py-2 font-medium text-sm transition-colors
-                    border-b-2 flex items-center gap-2
-                    ${activePanel === tab.id || activePanel === null && tab.id === "timeline" ? "text-blue-400 border-blue-400" : "text-slate-400 border-transparent hover:text-slate-300"}
-                  `,
-                  children: [
-                    /* @__PURE__ */ jsx6("span", { children: tab.icon }),
-                    tab.label
-                  ]
-                },
-                tab.id
-              )) }),
-              /* @__PURE__ */ jsx6("div", { className: "flex-1 overflow-hidden", children: renderPanel() })
+                ),
+                /* @__PURE__ */ jsx6("div", { className: "relative h-full", children: renderPanel() })
+              ] })
             ]
           }
         )

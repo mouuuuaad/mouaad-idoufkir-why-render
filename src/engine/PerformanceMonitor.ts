@@ -78,14 +78,6 @@ export class PerformanceMonitor {
         // Update metrics
         this.updateMetrics(componentName, componentId, duration);
 
-        // Emit event
-        globalEventEmitter.emit('render:end', {
-            componentName,
-            componentId,
-            timestamp: endTime,
-            duration,
-        });
-
         // Check for slow render
         if (duration > this.options.slowThresholdMs) {
             globalEventEmitter.emit('performance:warning', {

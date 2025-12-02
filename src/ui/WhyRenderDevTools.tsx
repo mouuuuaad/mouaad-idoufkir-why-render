@@ -99,12 +99,43 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
     // Keyboard shortcut
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            const parts = toggleShortcut.split('+');
-            const meta = parts.includes('Meta') ? e.metaKey : false;
-            const shift = parts.includes('Shift') ? e.shiftKey : false;
-            const key = parts[parts.length - 1].toLowerCase();
+            // Ignore if input/textarea is focused
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+                return;
+            }
 
-            if (meta && shift && e.key.toLowerCase() === key) {
+            const parts = toggleShortcut.toLowerCase().split('+');
+            const key = parts[parts.length - 1].trim();
+
+            const wantsMeta = parts.some(p => ['meta', 'cmd', 'command'].includes(p));
+            const wantsCtrl = parts.some(p => ['ctrl', 'control'].includes(p));
+            const wantsShift = parts.includes('shift');
+            const wantsAlt = parts.includes('alt');
+
+            // Check key
+            if (e.key.toLowerCase() !== key) return;
+
+            // Check modifiers
+            const shiftOk = e.shiftKey === wantsShift;
+            const altOk = e.altKey === wantsAlt;
+
+            // Smart handling for Cmd/Ctrl
+            let metaCtrlOk = false;
+            if (wantsMeta && !wantsCtrl) {
+                // Wants Meta/Cmd only -> Accept Meta OR Ctrl (for Linux/Win compatibility)
+                metaCtrlOk = e.metaKey || e.ctrlKey;
+            } else if (wantsCtrl && !wantsMeta) {
+                // Wants Ctrl only -> Accept Ctrl
+                metaCtrlOk = e.ctrlKey && !e.metaKey;
+            } else if (wantsMeta && wantsCtrl) {
+                // Wants both -> Accept both
+                metaCtrlOk = e.metaKey && e.ctrlKey;
+            } else {
+                // Wants neither -> Ensure neither
+                metaCtrlOk = !e.metaKey && !e.ctrlKey;
+            }
+
+            if (shiftOk && altOk && metaCtrlOk) {
                 e.preventDefault();
                 toggleOpen();
             }

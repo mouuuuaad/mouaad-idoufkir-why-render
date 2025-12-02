@@ -1,4 +1,4 @@
-# @mouaad-idoufkir/why-render
+# @mouaad_idoufkir/why-render
 
 [![npm version](https://img.shields.io/npm/v/@mouaad-idoufkir/why-render.svg)](https://www.npmjs.com/package/@mouaad-idoufkir/why-render)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -7,13 +7,11 @@
 
 A comprehensive, lightweight developer tool for React 19 that detects unnecessary re-renders, visualizes performance with a Flame Graph, and helps you optimize your application.
 
-![DevTools Preview](https://raw.githubusercontent.com/mouaad-idoufkir/why-render/main/media/preview.png)
-
 ## 🚀 Why use this?
 
 React is fast, but unnecessary re-renders can slow down your app. Identifying *why* a component re-rendered (was it a prop change? a state update? a parent render?) can be difficult.
 
-**@mouaad-idoufkir/why-render** solves this by:
+**@mouaad_idoufkir/why-render** solves this by:
 1.  **Tracking** every render and its cause.
 2.  **Diffing** props to show exactly what changed (value vs. reference).
 3.  **Visualizing** performance with an interactive Flame Graph and Timeline.

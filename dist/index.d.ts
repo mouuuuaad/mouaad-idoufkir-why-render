@@ -1,19 +1,6 @@
+import { O as Options, C as Change } from './types-D18qxgqb.js';
+export { a as CompareStrategy } from './types-D18qxgqb.js';
 import React from 'react';
-
-type CompareStrategy = "shallow" | "deep" | "fast-deep" | "custom";
-interface Options {
-    compareStrategy?: CompareStrategy;
-    verbose?: boolean;
-    skipKeys?: string[];
-    thresholdMs?: number;
-    customCompare?: (a: any, b: any) => boolean;
-}
-type Change = {
-    key: string;
-    reason: "value" | "type" | "function" | "reference" | "length";
-    oldValue: any;
-    newValue: any;
-};
 
 declare function useWhyRender<TProps = any>(props: TProps, componentName?: string, options?: Options): {
     lastProps: TProps | null;
@@ -28,4 +15,4 @@ type UseWhyRender = typeof useWhyRender & {
 };
 declare const useWhyRenderExport: UseWhyRender;
 
-export { type Change, type CompareStrategy, type Options, type UseWhyRender, useWhyRenderExport as useWhyRender, withWhyRender };
+export { Change, Options, type UseWhyRender, useWhyRenderExport as useWhyRender, withWhyRender };
