@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useWhyRender } from '../../../src/hooks/useWhyRender';
+import { useWhyRender } from '@mouaad_idoufkir/why-render';
 
 interface Transaction {
     id: string;

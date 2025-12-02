@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWhyRender } from '../../src/hooks/useWhyRender';
+import { useWhyRender } from '@mouaad_idoufkir/why-render';
 import { DashboardLayout } from './components/DashboardLayout';
 import { CryptoTicker } from './components/CryptoTicker';
 import { TransactionList } from './components/TransactionList';

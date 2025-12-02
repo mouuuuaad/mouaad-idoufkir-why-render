@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useWhyRender } from '../../../src/hooks/useWhyRender';
+import { useWhyRender } from '@mouaad_idoufkir/why-render';
 
 export const PortfolioChart: React.FC = () => {
     const [timeRange, setTimeRange] = useState('1D');

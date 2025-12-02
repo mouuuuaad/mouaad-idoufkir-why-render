@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useWhyRender } from '../../../src/hooks/useWhyRender';
+import { useWhyRender } from '@mouaad_idoufkir/why-render';
 
 interface PriceData {
     symbol: string;
