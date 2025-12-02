@@ -2,6 +2,9 @@
  * UI Components Entry Point
  */
 
+// Import styles - will be bundled and injected automatically
+import './styles/tailwind.css';
+
 export { WhyRenderDevTools } from './WhyRenderDevTools';
 export type { WhyRenderDevToolsProps } from './WhyRenderDevTools';
 

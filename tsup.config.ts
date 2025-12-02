@@ -13,4 +13,10 @@ export default defineConfig({
     clean: true,
     splitting: true,
     external: ['react', 'react-dom', 'zustand'],
+    // Inject CSS into the JS bundle
+    injectStyle: true,
+    // Process CSS files
+    loader: {
+        '.css': 'local-css',
+    },
 });
