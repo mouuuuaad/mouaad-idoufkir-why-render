@@ -22,11 +22,11 @@ React is fast, but unnecessary re-renders can slow down your app. Identifying *w
 ## 📦 Installation
 
 ```bash
-npm install @mouaad-idoufkir/why-render
+npm install @mouaad_idoufkir/why-render
 # or
-yarn add @mouaad-idoufkir/why-render
+yarn add @mouaad_idoufkir/why-render
 # or
-pnpm add @mouaad-idoufkir/why-render
+pnpm add @mouaad_idoufkir/why-render
 ```
 
 ---
