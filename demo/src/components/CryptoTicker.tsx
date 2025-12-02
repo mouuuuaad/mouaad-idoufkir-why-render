@@ -31,14 +31,14 @@ export const CryptoTicker: React.FC = () => {
     useWhyRender({ prices, style }, 'CryptoTicker', { verbose: true });
 
     return (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 col-span-1 md:col-span-2 lg:col-span-1">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-100">Live Prices</h2>
-                <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded animate-pulse">
+        <div>
+            <div>
+                <h2>Live Prices</h2>
+                <span>
                     Live
                 </span>
             </div>
-            <div className="space-y-3">
+            <div>
                 {prices.map(coin => (
                     <TickerItem key={coin.symbol} data={coin} />
                 ))}
@@ -52,11 +52,11 @@ const TickerItem = ({ data }: { data: PriceData }) => {
     useWhyRender({ data }, `TickerItem:${data.symbol}`);
 
     return (
-        <div className="flex justify-between items-center p-2 hover:bg-slate-700/50 rounded transition-colors">
-            <div className="font-medium">{data.symbol}</div>
-            <div className="text-right">
-                <div className="font-mono">${data.price.toFixed(2)}</div>
-                <div className={`text-xs ${data.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        <div>
+            <div>{data.symbol}</div>
+            <div>
+                <div>${data.price.toFixed(2)}</div>
+                <div>
                     {data.change > 0 ? '+' : ''}{data.change.toFixed(2)}%
                 </div>
             </div>

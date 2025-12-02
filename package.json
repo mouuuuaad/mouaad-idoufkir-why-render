@@ -1,6 +1,6 @@
 {
   "name": "@mouaad_idoufkir/why-render",
-  "version": "0.1.1",
+  "version": "0.2025.13",
   "type": "module",
   "description": "A comprehensive React 19 developer tool that detects unnecessary re-renders with visual debugging panels, performance monitoring, and AI-powered suggestions.",
   "main": "./dist/index.js",

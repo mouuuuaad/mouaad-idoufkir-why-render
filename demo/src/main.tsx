@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
+import App from './App.tsx';
 
 // Import DevTools (only in development)
 // @ts-ignore - UI components have type issues
