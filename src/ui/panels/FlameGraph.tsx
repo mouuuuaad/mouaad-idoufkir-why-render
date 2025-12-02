@@ -26,7 +26,8 @@ export const FlameGraph: React.FC<FlameGraphProps> = ({
 
     // Transform hierarchy data into d3 compatible format
     const rootData = useMemo(() => {
-        if (!hierarchy || hierarchy.length === 0) return null;
+        // If no hierarchy, try to build from renders
+        if ((!hierarchy || hierarchy.length === 0) && renders.length === 0) return null;
 
         // Helper to build the tree with performance data
         const buildTree = (nodes: any[]): FlameGraphNode[] => {
@@ -41,12 +42,36 @@ export const FlameGraph: React.FC<FlameGraphProps> = ({
                     value: duration,
                     componentId: node.componentId,
                     actualDuration: duration,
-                    children: node.children ? buildTree(node.children) : undefined
+                    children: node.children && node.children.length > 0 ? buildTree(node.children) : undefined
                 };
             });
         };
 
-        const children = buildTree(hierarchy);
+        // Use hierarchy if available, otherwise create flat structure from renders
+        let children: FlameGraphNode[];
+        if (hierarchy && hierarchy.length > 0) {
+            children = buildTree(hierarchy);
+        } else {
+            // Create a flat structure from unique components in renders
+            const uniqueComponents = new Map<string, { name: string; id: string; duration: number }>();
+            renders.forEach(r => {
+                const existing = uniqueComponents.get(r.componentId);
+                if (!existing || r.timestamp > existing.duration) {
+                    uniqueComponents.set(r.componentId, {
+                        name: r.componentName,
+                        id: r.componentId,
+                        duration: r.duration
+                    });
+                }
+            });
+
+            children = Array.from(uniqueComponents.values()).map(comp => ({
+                name: comp.name,
+                value: comp.duration,
+                componentId: comp.id,
+                actualDuration: comp.duration
+            }));
+        }
 
         return {
             name: 'Root',

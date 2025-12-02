@@ -13,9 +13,8 @@ import {
     analyzePerformance,
     analyzeRenderPatterns,
 } from '../src/utils/suggestions';
-import type { Change } from '../src/types';
+import type { Change, RenderEvent } from '../src/types';
 import type { PerformanceMetrics } from '../src/engine/PerformanceMonitor';
-import type { RenderEvent } from '../src/engine/RenderTracker';
 
 describe('Color Utilities', () => {
     it('should generate consistent colors from strings', () => {

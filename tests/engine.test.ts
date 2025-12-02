@@ -53,15 +53,31 @@ describe('EventEmitter', () => {
         emitter.emit('render:end', {
             componentName: 'Test',
             componentId: 'test-1',
-            timestamp: 456,
-            duration: 10,
+            renderEvent: {
+                id: '1',
+                componentName: 'Test',
+                componentId: 'test-1',
+                timestamp: 456,
+                duration: 10,
+                changes: [],
+                props: {},
+                renderCount: 1,
+            },
         });
 
         emitter.emit('render:end', {
             componentName: 'Test',
             componentId: 'test-1',
-            timestamp: 500,
-            duration: 12,
+            renderEvent: {
+                id: '2',
+                componentName: 'Test',
+                componentId: 'test-1',
+                timestamp: 500,
+                duration: 12,
+                changes: [],
+                props: {},
+                renderCount: 2,
+            },
         });
 
         expect(handler).toHaveBeenCalledTimes(1);

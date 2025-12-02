@@ -14,3 +14,14 @@ export type Change = {
     oldValue: any;
     newValue: any;
 };
+
+export interface RenderEvent {
+    id: string;
+    componentName: string;
+    componentId: string;
+    timestamp: number;
+    duration: number;
+    changes: Change[];
+    props: any;
+    renderCount: number;
+}

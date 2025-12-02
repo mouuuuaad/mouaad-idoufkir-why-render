@@ -88,18 +88,43 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 };
 
 export const ComponentTree: React.FC = () => {
-    const { hierarchy, selectedComponentId, setSelectedComponent, metrics, slowThreshold } = useDevToolsStore();
+    const { hierarchy, selectedComponentId, setSelectedComponent, metrics, slowThreshold, renders } = useDevToolsStore();
 
     const metricsMap = useMemo(() => {
         return new Map(metrics.map(m => [m.componentId, m]));
     }, [metrics]);
 
-    if (!hierarchy || hierarchy.length === 0) {
+    // Build hierarchy from renders if actual hierarchy is empty
+    const displayHierarchy = useMemo(() => {
+        if (hierarchy && hierarchy.length > 0) {
+            return hierarchy;
+        }
+
+        // Create flat hierarchy from unique components in renders
+        if (renders.length === 0) return [];
+
+        const uniqueComponents = new Map<string, any>();
+        renders.forEach(r => {
+            if (!uniqueComponents.has(r.componentId)) {
+                uniqueComponents.set(r.componentId, {
+                    componentName: r.componentName,
+                    componentId: r.componentId,
+                    children: [],
+                    depth: 0
+                });
+            }
+        });
+
+        return Array.from(uniqueComponents.values());
+    }, [hierarchy, renders]);
+
+    if (displayHierarchy.length === 0) {
         return (
             <div className="flex items-center justify-center h-full text-slate-400 p-4">
-                No component hierarchy detected.
-                <br />
-                Make sure to use 'withWhyRender' or 'useWhyRender' in your components.
+                <div className="text-center">
+                    <p>No component data available yet.</p>
+                    <p className="text-sm mt-2">Interact with your app to see component tree.</p>
+                </div>
             </div>
         );
     }
@@ -107,7 +132,7 @@ export const ComponentTree: React.FC = () => {
     return (
         <div className="h-full overflow-y-auto why-render-scrollbar bg-slate-900/50">
             <div className="p-2">
-                {hierarchy.map((node: any) => (
+                {displayHierarchy.map((node: any) => (
                     <TreeNode
                         key={node.componentId}
                         node={node}

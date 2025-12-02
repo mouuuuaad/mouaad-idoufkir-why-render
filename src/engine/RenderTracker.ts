@@ -5,18 +5,7 @@
 
 import { globalEventEmitter } from './EventEmitter';
 import { globalPerformanceMonitor } from './PerformanceMonitor';
-import type { Change } from '../types';
-
-export interface RenderEvent {
-    id: string;
-    componentName: string;
-    componentId: string;
-    timestamp: number;
-    duration: number;
-    changes: Change[];
-    props: any;
-    renderCount: number;
-}
+import type { Change, RenderEvent } from '../types';
 
 export interface ComponentHierarchyNode {
     componentName: string;
@@ -98,6 +87,18 @@ export class RenderTracker {
 
         if (recentEvent) {
             recentEvent.duration = duration;
+
+            console.log('[RenderTracker] Emitting render:end event:', {
+                componentName,
+                componentId,
+                eventId: recentEvent.id,
+                duration: recentEvent.duration,
+            });
+            globalEventEmitter.emit('render:end', {
+                componentName,
+                componentId,
+                renderEvent: recentEvent,
+            });
         }
     }
 

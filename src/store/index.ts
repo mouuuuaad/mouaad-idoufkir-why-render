@@ -3,7 +3,8 @@
  */
 
 import { create } from 'zustand';
-import type { RenderEvent, ComponentHierarchyNode } from '../engine/RenderTracker';
+import type { ComponentHierarchyNode } from '../engine/RenderTracker';
+import type { RenderEvent } from '../types';
 import type { PerformanceMetrics } from '../engine/PerformanceMonitor';
 
 export interface DevToolsState {

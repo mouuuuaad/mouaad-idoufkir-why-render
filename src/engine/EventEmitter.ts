@@ -2,6 +2,8 @@
  * Simple type-safe event emitter for render tracking events
  */
 
+import type { RenderEvent } from '../types';
+
 export type RenderEventType =
     | 'render:start'
     | 'render:end'
@@ -19,8 +21,7 @@ export interface RenderEventPayload {
     'render:end': {
         componentName: string;
         componentId: string;
-        timestamp: number;
-        duration: number;
+        renderEvent: RenderEvent;
     };
     'change:detected': {
         componentName: string;

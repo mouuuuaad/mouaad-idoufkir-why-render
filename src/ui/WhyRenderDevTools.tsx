@@ -55,6 +55,7 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
         metrics,
         toggleOpen,
         setActivePanel,
+        setSelectedComponent,
         updateRenders,
         updateHierarchy,
         updateMetrics,
@@ -69,6 +70,11 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
     useEffect(() => {
         const syncData = () => {
             const exportedData = globalRenderTracker.export();
+            console.log('[DevTools] Syncing data:', {
+                historyCount: exportedData.history.length,
+                hierarchyCount: exportedData.hierarchy.length,
+                metricsCount: exportedData.metrics.length,
+            });
             updateRenders(exportedData.history);
             updateHierarchy(exportedData.hierarchy);
             updateMetrics(exportedData.metrics);
@@ -78,9 +84,14 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
         syncData();
 
         // Subscribe to render events
-        const unsubscribe = globalEventEmitter.on('render:end', syncData);
+        console.log('[DevTools] Subscribing to render:end events');
+        const unsubscribe = globalEventEmitter.on('render:end', (payload) => {
+            console.log('[DevTools] Received render:end event:', payload);
+            syncData();
+        });
 
         return () => {
+            console.log('[DevTools] Unsubscribing from render:end events');
             unsubscribe();
         };
     }, [updateRenders, updateHierarchy, updateMetrics]);
@@ -127,7 +138,8 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
                         events={renders}
                         slowThreshold={slowThreshold}
                         maxEvents={100}
-                        onSelectEvent={() => {
+                        onSelectEvent={(event) => {
+                            setSelectedComponent(event.componentId);
                             setActivePanel('stats');
                         }}
                         selectedEventId={latestRender?.id}
