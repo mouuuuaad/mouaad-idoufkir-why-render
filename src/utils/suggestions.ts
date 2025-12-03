@@ -3,12 +3,11 @@
  * Analyzes render patterns and provides optimization suggestions
  */
 
-import type { Change } from '../types';
-import type { RenderEvent } from '../engine/RenderTracker';
+import type { Change, RenderEvent } from '../types';
 import type { PerformanceMetrics } from '../engine/PerformanceMonitor';
 
 export interface Suggestion {
-    type: 'useMemo' | 'useCallback' | 'React.memo' | 'moveOutside' | 'splitComponent' | 'useTransition' | 'general';
+    type: 'useMemo' | 'useCallback' | 'React.memo' | 'moveOutside' | 'splitComponent' | 'useTransition' | 'general' | 'styleProp';
     severity: 'info' | 'warning' | 'critical';
     title: string;
     description: string;
@@ -42,16 +41,41 @@ export function analyzePropChanges(componentName: string, changes: Change[]): Su
 
     // Suggest useMemo for object/array props
     if (referenceChanges.length > 0) {
-        suggestions.push({
-            type: 'useMemo',
-            severity: referenceChanges.length > 2 ? 'warning' : 'info',
-            title: 'Unstable Reference Props Detected',
-            description: `${referenceChanges.length} object/array prop(s) are being recreated with the same content. Use useMemo to prevent unnecessary re-renders.`,
-            affectedProps: referenceChanges.map(c => c.key),
-            codeExample: `const ${referenceChanges[0].key} = useMemo(() => ({
+        // Check for style prop specifically
+        const styleChange = referenceChanges.find(c => c.key === 'style');
+        if (styleChange) {
+            suggestions.push({
+                type: 'styleProp',
+                severity: 'warning',
+                title: 'Inline Style Object Detected',
+                description: 'The `style` prop is receiving a new object on every render. This breaks referential equality and causes re-renders.',
+                affectedProps: ['style'],
+                codeExample: `// Bad
+<Component style={{ color: 'red' }} />
+
+// Good (Move outside)
+const styles = { color: 'red' };
+<Component style={styles} />
+
+// Good (useMemo)
+const styles = useMemo(() => ({ color: active ? 'red' : 'blue' }), [active]);
+<Component style={styles} />`
+            });
+        }
+
+        const otherRefChanges = referenceChanges.filter(c => c.key !== 'style');
+        if (otherRefChanges.length > 0) {
+            suggestions.push({
+                type: 'useMemo',
+                severity: otherRefChanges.length > 2 ? 'warning' : 'info',
+                title: 'Unstable Reference Props Detected',
+                description: `${otherRefChanges.length} object/array prop(s) are being recreated with the same content. Use useMemo to prevent unnecessary re-renders.`,
+                affectedProps: otherRefChanges.map(c => c.key),
+                codeExample: `const ${otherRefChanges[0].key} = useMemo(() => ({
   // your object
 }), [dependencies]);`
-        });
+            });
+        }
     }
 
     // Suggest moving constants outside component
@@ -133,6 +157,8 @@ startTransition(() => {
         });
     }
 
+
+
     // High average render time
     if (metrics.averageTime > 50 && metrics.renderCount > 10) {
         suggestions.push({
@@ -145,6 +171,46 @@ startTransition(() => {
 // 2. Virtualize long lists (react-window, react-virtual)
 // 3. Lazy load heavy components with React.lazy()
 // 4. Use React DevTools Profiler to identify bottlenecks`
+        });
+    }
+
+    return suggestions;
+}
+
+/**
+ * Analyze context usage patterns
+ */
+export function analyzeContextPatterns(history: RenderEvent[]): Suggestion[] {
+    const suggestions: Suggestion[] = [];
+    if (history.length < 2) return suggestions;
+
+    // Check for props named 'value' or 'context' that change frequently
+    const contextLikeProps = ['value', 'context', 'theme', 'store'];
+    const propChanges = new Map<string, number>();
+
+    history.forEach(event => {
+        event.changes.forEach((change: Change) => {
+            if (contextLikeProps.some(p => change.key.toLowerCase().includes(p))) {
+                propChanges.set(change.key, (propChanges.get(change.key) || 0) + 1);
+            }
+        });
+    });
+
+    const frequentContextChanges = Array.from(propChanges.entries())
+        .filter(([_, count]) => count > history.length * 0.8);
+
+    if (frequentContextChanges.length > 0) {
+        suggestions.push({
+            type: 'general',
+            severity: 'warning',
+            title: 'Potential Context Thrashing',
+            description: `Context-like props (${frequentContextChanges.map(p => p[0]).join(', ')}) are changing in almost every render. This can cause widespread re-renders in consumers.`,
+            codeExample: `// Split context into smaller contexts
+const ValueContext = createContext(null);
+const ActionsContext = createContext(null);
+
+// Or memoize the value
+const value = useMemo(() => ({ state, dispatch }), [state]);`
         });
     }
 
@@ -230,6 +296,7 @@ export function getComponentSuggestions(
         ...analyzePropChanges(componentName, changes),
         ...analyzePerformance(metrics, slowThreshold),
         ...analyzeRenderPatterns(history),
+        ...analyzeContextPatterns(history),
     ];
 
     // Sort by severity
