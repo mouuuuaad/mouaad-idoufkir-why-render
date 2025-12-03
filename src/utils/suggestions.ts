@@ -234,23 +234,82 @@ export function analyzeRenderPatterns(history: RenderEvent[]): Suggestion[] {
     }
 
     if (rapidRenderCount > 3) {
+        // 1. Effect Dependency Loop Suggestion
         suggestions.push({
             type: 'general',
             severity: 'warning',
-            title: 'Rapid Re-render Pattern Detected',
-            description: `Component is re-rendering multiple times in quick succession (${rapidRenderCount} rapid renders detected). This may indicate a state update loop.`,
-            codeExample: `// Common causes:
-// 1. useEffect updating state it depends on
+            title: 'Potential Cause: Effect Dependency Loop',
+            description: 'Rapid re-renders often occur when a useEffect updates a state variable that is also in its dependency array, creating an infinite loop.',
+            codeExample: `// ❌ PROBLEM: Updating state that is a dependency
 useEffect(() => {
-  setState(value); // Don't update state that's in dependencies
-}, [value]);
+  // This updates 'value', which triggers re-render
+  // Then useEffect runs again because 'value' changed
+  setValue(value + 1); 
+}, [value]); // <--- 'value' is a dependency
 
-// 2. Parent re-rendering due to unstable props
-// Use React.memo or stabilize parent props
+// ✅ SOLUTION 1: Use functional update
+useEffect(() => {
+  setValue(prev => prev + 1); // No dependency needed
+}, []);
 
-// 3. Context value changing on every render
-// Memoize context value
-const value = useMemo(() => ({ data }), [data]);`
+// ✅ SOLUTION 2: Remove unnecessary dependency
+// If you only need to run this when other props change
+useEffect(() => {
+  if (shouldUpdate) {
+    setValue(newValue);
+  }
+}, [shouldUpdate]); // Remove 'value' from deps`
+        });
+
+        // 2. Unstable Parent/Props Suggestion
+        suggestions.push({
+            type: 'React.memo',
+            severity: 'info',
+            title: 'Potential Cause: Unstable Parent or Props',
+            description: 'If the parent component re-renders frequently and passes new object/function references, this component will also re-render.',
+            codeExample: `// ❌ PROBLEM: Parent passes new reference every time
+function Parent() {
+  // Created new every render
+  const handleClick = () => {}; 
+  const style = { color: 'red' };
+
+  return <Child onClick={handleClick} style={style} />;
+}
+
+// ✅ SOLUTION: Stabilize props in Parent
+function Parent() {
+  const handleClick = useCallback(() => {}, []);
+  const style = useMemo(() => ({ color: 'red' }), []);
+
+  return <Child onClick={handleClick} style={style} />;
+}
+
+// ✅ ALTERNATIVE: Wrap Child in React.memo
+const Child = React.memo(function Child(props) {
+  return <div>...</div>;
+});`
+        });
+
+        // 3. Context Thrashing Suggestion
+        suggestions.push({
+            type: 'useMemo',
+            severity: 'info',
+            title: 'Potential Cause: Context Thrashing',
+            description: 'If this component consumes a Context, and the Context value is a new object every time, it will force a re-render.',
+            codeExample: `// ❌ PROBLEM: Context provider value is unstable
+function MyProvider({ children }) {
+  // New object created every render!
+  const value = { data, setData }; 
+  
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+// ✅ SOLUTION: Memoize the context value
+function MyProvider({ children }) {
+  const value = useMemo(() => ({ data, setData }), [data]);
+  
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}`
         });
     }
 
