@@ -109,12 +109,12 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
     const getSeverityStyles = (severity: string) => {
         switch (severity) {
             case 'critical':
-                return 'border-rose-500/50 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.15)] hover:shadow-[0_0_30px_rgba(244,63,94,0.25)] hover:border-rose-500/70';
+                return 'border-rose-500/30 bg-rose-500/5';
             case 'warning':
-                return 'border-amber-500/50 bg-amber-500/10 shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:border-amber-500/70';
+                return 'border-amber-500/30 bg-amber-500/5';
             case 'info':
             default:
-                return 'border-cyan-500/50 bg-cyan-500/10 shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:shadow-[0_0_30px_rgba(6,182,212,0.25)] hover:border-cyan-500/70';
+                return 'border-cyan-500/30 bg-cyan-500/5';
         }
     };
 
@@ -122,7 +122,7 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
         switch (severity) {
             case 'critical':
                 return (
-                    <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/50">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -130,7 +130,7 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                 );
             case 'warning':
                 return (
-                    <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50">
+                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -139,13 +139,49 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
             case 'info':
             default:
                 return (
-                    <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50">
+                    <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                     </div>
                 );
         }
+    };
+
+    // Lightweight Syntax Highlighter for Dracula Theme
+    const SyntaxHighlight = ({ code }: { code: string }) => {
+        const tokens = code.split(/(\/\/.*|\/\*[\s\S]*?\*\/|'.*?'|".*?"|`.*?`|\b(?:const|let|var|function|return|if|else|import|export|default|from|class|interface|type)\b|\b(?:React|useState|useEffect|useMemo|useCallback|useRef|useContext|console)\b|[(){}[\].,;])/g);
+
+        return (
+            <code className="font-mono text-sm">
+                {tokens.map((token, i) => {
+                    if (!token) return null;
+
+                    // Comments
+                    if (token.startsWith('//') || token.startsWith('/*')) {
+                        return <span key={i} style={{ color: '#6272a4' }}>{token}</span>;
+                    }
+                    // Strings
+                    if (token.startsWith("'") || token.startsWith('"') || token.startsWith('`')) {
+                        return <span key={i} style={{ color: '#f1fa8c' }}>{token}</span>;
+                    }
+                    // Keywords (Pink)
+                    if (/^(const|let|var|function|return|if|else|import|export|default|from|class|interface|type)$/.test(token)) {
+                        return <span key={i} style={{ color: '#ff79c6' }}>{token}</span>;
+                    }
+                    // Built-ins/Hooks (Cyan)
+                    if (/^(React|useState|useEffect|useMemo|useCallback|useRef|useContext|console)$/.test(token)) {
+                        return <span key={i} style={{ color: '#8be9fd', fontStyle: 'italic' }}>{token}</span>;
+                    }
+                    // Punctuation (White/Foreground)
+                    if (/^[(){}[\].,;]$/.test(token)) {
+                        return <span key={i} style={{ color: '#f8f8f2' }}>{token}</span>;
+                    }
+                    // Normal text (Foreground)
+                    return <span key={i} style={{ color: '#f8f8f2' }}>{token}</span>;
+                })}
+            </code>
+        );
     };
 
     return (
@@ -203,8 +239,8 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                 {/* Suggestions */}
                 {suggestions.length > 0 && (
                     <div className="animate-fade-in delay-300">
-                        <h4 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <h4 className="text-sm font-bold text-[#f8f8f2] mb-4 flex items-center gap-2 uppercase tracking-wider">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#f1fa8c]"></span>
                             Optimization Suggestions
                         </h4>
                         <div className="space-y-4">
@@ -217,7 +253,7 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                                     `}
                                 >
                                     {/* Decorative gradient background */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-[#f8f8f2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                                     <div className="relative p-5">
                                         <div className="flex items-start gap-4">
@@ -226,20 +262,20 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between gap-2 mb-2">
-                                                    <h5 className="text-lg font-bold text-slate-100 tracking-tight">
+                                                    <h5 className="text-lg font-bold text-[#f8f8f2] tracking-tight">
                                                         {suggestion.title}
                                                     </h5>
                                                     <span className={`
                                                         px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border
-                                                        ${suggestion.severity === 'critical' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-                                                            suggestion.severity === 'warning' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                                                                'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'}
+                                                        ${suggestion.severity === 'critical' ? 'bg-[#ff5555]/20 text-[#ff5555] border-[#ff5555]/30' :
+                                                            suggestion.severity === 'warning' ? 'bg-[#ffb86c]/20 text-[#ffb86c] border-[#ffb86c]/30' :
+                                                                'bg-[#8be9fd]/20 text-[#8be9fd] border-[#8be9fd]/30'}
                                                     `}>
                                                         {suggestion.severity}
                                                     </span>
                                                 </div>
 
-                                                <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                                                <p className="text-sm text-[#f8f8f2]/80 leading-relaxed mb-4">
                                                     {suggestion.description}
                                                 </p>
 
@@ -248,9 +284,9 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                                                         {suggestion.affectedProps.map((prop, i) => (
                                                             <span
                                                                 key={i}
-                                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-slate-950/50 text-slate-300 font-mono border border-slate-700/50 shadow-sm"
+                                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-[#282a36]/50 text-[#bd93f9] font-mono border border-[#6272a4]/50 shadow-sm"
                                                             >
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#bd93f9]"></span>
                                                                 {prop}
                                                             </span>
                                                         ))}
@@ -258,11 +294,11 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                                                 )}
 
                                                 {suggestion.codeExample && (
-                                                    <div className="mt-4 rounded-lg overflow-hidden border border-slate-800/50 bg-slate-950 shadow-xl">
-                                                        <div className="flex items-center justify-between px-4 py-2 bg-slate-900/50 border-b border-slate-800/50">
-                                                            <span className="text-xs font-medium text-slate-400">Suggestion</span>
+                                                    <div className="mt-4 rounded-lg overflow-hidden border border-[#6272a4]/30 bg-[#282a36] shadow-xl">
+                                                        <div className="flex items-center justify-between px-4 py-2 bg-[#44475a]/50 border-b border-[#6272a4]/30">
+                                                            <span className="text-xs font-medium text-[#6272a4]">Suggestion</span>
                                                             <button
-                                                                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+                                                                className="text-xs text-[#bd93f9] hover:text-[#ff79c6] transition-colors flex items-center gap-1"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     navigator.clipboard.writeText(suggestion.codeExample || '');
@@ -275,10 +311,8 @@ export const ComponentStats: React.FC<ComponentStatsProps> = ({
                                                             </button>
                                                         </div>
                                                         <div className="p-4 overflow-x-auto custom-scrollbar">
-                                                            <pre className="text-xs font-mono leading-relaxed">
-                                                                <code className="text-slate-300">
-                                                                    {suggestion.codeExample}
-                                                                </code>
+                                                            <pre className="text-xs leading-relaxed">
+                                                                <SyntaxHighlight code={suggestion.codeExample} />
                                                             </pre>
                                                         </div>
                                                     </div>

@@ -300,7 +300,7 @@ export const WhyRenderDevTools: React.FC<WhyRenderDevToolsProps> = ({
                                         </span>
                                     </h2>
                                     <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
-                                        <span>v0.1.0</span>
+                                        <span>v0.25.20</span>
                                         <span className="w-1 h-1 rounded-full bg-slate-600"></span>
                                         <span>{renders.length} events captured</span>
                                     </div>
